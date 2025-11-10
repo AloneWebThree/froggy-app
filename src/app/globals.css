@@ -1,0 +1,17 @@
+﻿/* Tailwind v4 entry */
+@import "tailwindcss";
+
+/* Design tokens -> generates bg-brand-bg, text-brand-text, etc. */
+@theme {
+    --color-brand-bg: #0b1221;
+    --color-brand-primary: #6eb819;
+    --color-brand-secondary: #5AA6FF;
+    --color-brand-text: #E9F1FF;
+    --color-brand-card: #121a2e;
+    --color-brand-subtle: #93A8C3;
+}
+
+/* Global baseline */
+html, body, :root {
+    @apply bg-brand-bg text-brand-text;
+}
