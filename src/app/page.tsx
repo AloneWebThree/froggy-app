@@ -108,7 +108,7 @@ function Donut({
 
     return (
         // wrapper: stack on mobile, row on md+
-        <div className="flex flex-col items-center gap-4 md:flex-row md:items-center md:gap-10">
+        <div className="flex w-full flex-col items-center gap-4 md:flex-row md:items-center md:justify-center md:gap-10">
             {/* Donut ring */}
             <div
                 className="relative shrink-0 rounded-full"
@@ -138,7 +138,7 @@ function Donut({
             </div>
 
             {/* Legend: 1 col on mobile, 2 cols on md+; no wide min-width on mobile */}
-            <ul className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm w-full sm:w-auto md:grid-cols-2 md:min-w-[26rem]">
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-sm w-full sm:w-auto md:min-w-[26rem]">
                 {data.map((s) => (
                     <li key={s.label} className="flex items-center gap-2">
                         <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
@@ -483,7 +483,7 @@ export default function FroggyLanding() {
                             k: "Holders",
                             v: "1,279 Holders",
                             d: "View holder data on Sei Explorer.",
-                            link: "https://seitrace.com/address/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1",
+                            link: "https://seitrace.com/token/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1&tab=holders",
                         },
                     ].map(({ k, v, d, link }) => (
                         <div
@@ -816,7 +816,7 @@ export default function FroggyLanding() {
                     {[
                         {
                             t: "Phase 1",
-                            d: "dApp launch, website integration, and live price with options of swap functionality.",
+                            d: "dApp launch, website integration, and live price with swap options functionality.",
                             done: true,
                         },
                         {
