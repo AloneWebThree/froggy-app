@@ -1,9 +1,38 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { WalletButton } from "./providers";
 import LiveStats from "@/components/LiveStats";
 import Image from "next/image";
+import Head from "next/head";
+
+import froggyBase from "@public/gallery/froggy-base.png";
+import froggyBeer from "@public/gallery/froggy-beer.png";
+import froggyCalm from "@public/gallery/froggy-calm.png";
+import froggyCape from "@public/gallery/froggy-cape.png";
+import froggyChampagne from "@public/gallery/froggy-champagne.png";
+import froggyCoffee from "@public/gallery/froggy-coffe.png";
+import froggyCook from "@public/gallery/froggy-cook.png";
+import froggyCowboy from "@public/gallery/froggy-cowboy.png";
+import froggyDiamond from "@public/gallery/froggy-diamond.png";
+import froggyFarmer from "@public/gallery/froggy-farmer.png";
+import froggyFight from "@public/gallery/froggy-fight.png";
+import froggyFortune from "@public/gallery/froggy-fortune.png";
+import froggyGuitar from "@public/gallery/froggy-guitar.png";
+import froggyHero from "@public/gallery/froggy-hero.png";
+import froggyJetpack from "@public/gallery/froggy-jetpack.png";
+import froggyKarate from "@public/gallery/froggy-karate.png";
+import froggyKiss from "@public/gallery/froggy-kiss.png";
+import froggyLaptop from "@public/gallery/froggy-laptop.png";
+import froggyMap from "@public/gallery/froggy-map.png";
+import froggyMartini from "@public/gallery/froggy-martini.png";
+import froggyMoto from "@public/gallery/froggy-moto.png";
+import froggyPopcorn from "@public/gallery/froggy-popcorn.png";
+import froggySamurai from "@public/gallery/froggy-samurai.png";
+import froggySurf from "@public/gallery/froggy-surf.png";
+import froggyVik from "@public/gallery/froggy-vik.png";
+import froggyYaka from "@public/gallery/froggy-yaka.png";
+
 
 const ADDR = {
   token: "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9",
@@ -12,11 +41,11 @@ const ADDR = {
 
 const URL = {
   geckoEmbed: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=1d`,
-geckoFull: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}`,
-    pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
-        tokenExplorer: `https://seitrace.com/token/${ADDR.token}?chain=pacific-1`,
-            dragon: `https://dragonswap.app/swap?outputCurrency=${ADDR.token}&inputCurrency=`,
-                yaka: `https://yaka.finance/swap?inputCurrency=SEI&outputCurrency=${ADDR.token}`,
+    geckoFull: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}`,
+        pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
+            tokenExplorer: `https://seitrace.com/token/${ADDR.token}?chain=pacific-1`,
+                dragon: `https://dragonswap.app/swap?outputCurrency=${ADDR.token}&inputCurrency=`,
+                    yaka: `https://yaka.finance/swap?inputCurrency=SEI&outputCurrency=${ADDR.token}`,
 };
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -49,11 +78,198 @@ function CopyButton({ value, label }: { value: string; label: string }) {
     );
 }
 
+//Pie chart or Donut
+type Slice = { label: string; value: number; color: string };
+
+function Donut({
+    data,
+    size = 160,
+    thickness = 18,
+    centerLabel,
+}: {
+    data: Slice[];
+    size?: number;
+    thickness?: number;
+    centerLabel?: string;
+}) {
+    const total = data.reduce((a, b) => a + b.value, 0) || 1;
+
+    // build conic-gradient stops without mutating
+    const stops = data
+        .reduce<{ segs: string[]; acc: number }>((st, s) => {
+            const start = (st.acc / total) * 100;
+            const end = ((st.acc + s.value) / total) * 100;
+            st.segs.push(`${s.color} ${start}% ${end}%`);
+            return { segs: st.segs, acc: st.acc + s.value };
+        }, { segs: [], acc: 0 })
+        .segs.join(", ");
+
+    const mask = `radial-gradient(closest-side, transparent calc(100% - ${thickness}px), #000 calc(100% - ${thickness}px))`;
+
+    return (
+        // wrapper: stack on mobile, row on md+
+        <div className="flex flex-col items-center gap-4 md:flex-row md:items-center md:gap-10">
+            {/* Donut ring */}
+            <div
+                className="relative shrink-0 rounded-full"
+                role="img"
+                aria-label={centerLabel ? `${centerLabel} distribution` : "distribution"}
+                style={{
+                    // responsive dimension: clamp to viewport on mobile
+                    width: `clamp(140px, 45vw, ${size}px)`,
+                    height: `clamp(140px, 45vw, ${size}px)`,
+                }}
+            >
+                <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                        background: `conic-gradient(${stops})`,
+                        WebkitMask: mask,
+                        mask,
+                        transform: "rotate(-90deg)",
+                        boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset",
+                    }}
+                />
+                {centerLabel && (
+                    <div className="absolute inset-0 grid place-items-center text-sm font-semibold pointer-events-none">
+                        {centerLabel}
+                    </div>
+                )}
+            </div>
+
+            {/* Legend: 1 col on mobile, 2 cols on md+; no wide min-width on mobile */}
+            <ul className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm w-full sm:w-auto md:grid-cols-2 md:min-w-[26rem]">
+                {data.map((s) => (
+                    <li key={s.label} className="flex items-center gap-2">
+                        <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
+                        <span className="text-slate-300/90">{s.label}</span>
+                        <span className="ml-auto font-semibold">
+                            {Math.round((s.value / total) * 100)}%
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 export default function FroggyLanding() {
     const [menuOpen, setMenuOpen] = useState(false);
     const toggleRef = useRef<HTMLButtonElement | null>(null);
     const firstLinkRef = useRef<HTMLAnchorElement | null>(null);
 
+    const galleryItems = [
+        { src: froggyBase, alt: "Froggy base" },
+        { src: froggyBeer, alt: "Froggy beer" },
+        { src: froggyCalm, alt: "Froggy calm" },
+        { src: froggyCape, alt: "Froggy cape" },
+        { src: froggyChampagne, alt: "Froggy champagne" },
+        { src: froggyCoffee, alt: "Froggy coffee" },
+        { src: froggyCook, alt: "Froggy cook" },
+        { src: froggyCowboy, alt: "Froggy cowboy" },
+        { src: froggyDiamond, alt: "Froggy diamond" },
+        { src: froggyFarmer, alt: "Froggy farmer" },
+        { src: froggyFight, alt: "Froggy fight" },
+        { src: froggyFortune, alt: "Froggy fortune" },
+        { src: froggyGuitar, alt: "Froggy guitar" },
+        { src: froggyHero, alt: "Froggy hero" },
+        { src: froggyJetpack, alt: "Froggy jetpack" },
+        { src: froggyKarate, alt: "Froggy karate" },
+        { src: froggyKiss, alt: "Froggy kiss" },
+        { src: froggyLaptop, alt: "Froggy laptop" },
+        { src: froggyMap, alt: "Froggy map" },
+        { src: froggyMartini, alt: "Froggy martini" },
+        { src: froggyMoto, alt: "Froggy moto" },
+        { src: froggyPopcorn, alt: "Froggy popcorn" },
+        { src: froggySamurai, alt: "Froggy samurai" },
+        { src: froggySurf, alt: "Froggy surf" },
+        { src: froggyVik, alt: "Froggy vik" },
+        { src: froggyYaka, alt: "Froggy yaka" },
+    ] as const;
+
+    //Visible pages
+    const PAGE = 6;
+    const [visibleCount, setVisibleCount] = useState(PAGE);
+    const visibleItems = galleryItems.slice(0, visibleCount);
+
+
+    // Lightbox state
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState<number>(0);
+
+    const openerRef = useRef<HTMLButtonElement | null>(null);
+    const lightboxRootRef = useRef<HTMLDivElement | null>(null);
+
+    const startX = useRef<number | null>(null);
+
+    //Gallery ref
+    const galleryRef = useRef<HTMLElement | null>(null);
+
+    //Swipe handles
+    const onTouchStart = (e: React.TouchEvent) => {
+        startX.current = e.touches[0].clientX;
+    };
+    const onTouchEnd = (e: React.TouchEvent) => {
+        if (startX.current == null) return;
+        const dx = e.changedTouches[0].clientX - startX.current;
+        if (dx > 40) setActiveIndex(i => (i - 1 + galleryItems.length) % galleryItems.length);
+        if (dx < -40) setActiveIndex(i => (i + 1) % galleryItems.length);
+        startX.current = null;
+    };
+
+    //Chart
+    const supplyDistribution: Slice[] = [
+        { label: "Liquidity Pool", value: 20, color: "#5AA6FF" }, // primary
+        { label: "Community", value: 70, color: "#6eb819" }, // secondary (big slice)
+        { label: "Development Team", value: 5, color: "#93A8C3" },
+        { label: "CEX Reserve", value: 5, color: "#031f18" },  // was #E9F1FF
+    ];
+
+    // Lightbox keyboard controls
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setLightboxOpen(false);
+            if (e.key === "ArrowRight") setActiveIndex((i) => (i + 1) % galleryItems.length);
+            if (e.key === "ArrowLeft") setActiveIndex((i) => (i - 1 + galleryItems.length) % galleryItems.length);
+        };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [lightboxOpen, galleryItems.length]);
+
+    // Gallery scroll lock
+    useEffect(() => {
+        document.body.style.overflow = lightboxOpen ? "hidden" : "";
+        return () => { document.body.style.overflow = ""; };
+    }, [lightboxOpen]);
+
+    // Gallery focus
+    useEffect(() => {
+        if (!lightboxOpen || !lightboxRootRef.current) return;
+        const root = lightboxRootRef.current;
+        const selector = 'a, button, [tabindex]:not([tabindex="-1"])';
+        const getFocusables = () =>
+            Array.from(root.querySelectorAll<HTMLElement>(selector))
+                .filter(el => !el.hasAttribute("disabled"));
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            const els = getFocusables();
+            if (els.length === 0) return;
+            const first = els[0];
+            const last = els[els.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        document.addEventListener("keydown", onKeyDown);
+        return () => document.removeEventListener("keydown", onKeyDown);
+    }, [lightboxOpen]);
+
+    // Nav menu
     useEffect(() => {
         if (menuOpen && firstLinkRef.current) firstLinkRef.current.focus();
     }, [menuOpen]);
@@ -95,9 +311,24 @@ export default function FroggyLanding() {
         subtle: "#93A8C3",
     } as const;
 
+
+    //Main page section
     return (
         <div className="min-h-screen w-full" style={{ background: brand.bg, color: brand.text }}>
-            {/* Nav */}
+                <Head>
+                    <title>Froggy | Zero-tax utility on Sei Network</title>
+                    <meta
+                        name="description"
+                        content="1B supply, zero tax, locked liquidity, and community-driven utility on Sei Network."
+                    />
+                    <meta property="og:title" content="Froggy | Zero-tax meme utility" />
+                    <meta
+                        property="og:description"
+                        content="Trade $FROG and join the army on Sei EVM."
+                    />
+                    <meta property="og:image" content="/og-froggy.png" />
+                    <meta name="theme-color" content="#6eb819" />
+                </Head>
             <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-white/5">
                 <div className="mx-auto max-w-6xl px-4">
                     <div className="flex h-16 items-center justify-between">
@@ -184,11 +415,11 @@ export default function FroggyLanding() {
                 <div className="mx-auto max-w-6xl px-4 py-8 md:py-16 grid md:grid-cols-2 gap-10 items-center">
                     <div>
                         <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
-                            Froggy: community first,
+                            Community first,
                             <span style={{ color: brand.primary }}> zero-tax</span> trading on Sei Network
                         </h1>
                         <p className="mt-4 text-slate-300/90 max-w-prose">
-                            1B supply. Liquidity locked. Built for memes, merchants, and holders. Utility grows with the community. Yields are real.
+                            1B supply. Liquidity locked. Built for memes, investors, and holders. Utility that compounds with every holder.
                         </p>
                         <p className="mt-4 text-slate-300/90 max-w-prose">Contract is immutable and finalized!</p>
                         <div className="mt-6 flex flex-wrap gap-3">
@@ -199,7 +430,8 @@ export default function FroggyLanding() {
                             >
                                 Trade $FROG
                             </a>
-                            <a href="#token" className="rounded-xl px-5 py-2.5 text-sm font-semibold border border-white/15 hover:bg-white/5">
+                            <a href="#token"
+                                className="rounded-xl px-5 py-2.5 text-sm font-semibold border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10">
                                 Token details
                             </a>
                         </div>
@@ -220,20 +452,89 @@ export default function FroggyLanding() {
                 </div>
             </section>
 
-            {/* Token section */}
+            {/* Token Section */}
             <section id="token" className="mx-auto max-w-6xl px-4 pt-6 pb-14">
                 <h2 className="text-2xl md:text-3xl font-bold">Token</h2>
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <p className="mt-2 text-slate-300/90 text-sm leading-snug text-center md:text-left">
+                    Core tokenomics for the Froggy ecosystem.
+                </p>
+
+                {/* Token metric cards */}
+                <div className="mt-8 grid gap-6 md:grid-cols-3">
                     {[
-                        { k: "Ticker", v: "$FROG" },
-                        { k: "Chain", v: "Sei Network ID: 1329" },
-                        { k: "Supply", v: "Hard Cap: 1,000,000,000" },
-                    ].map(({ k, v }) => (
-                        <div key={k} className="rounded-2xl p-5 border border-white/10 bg-brand-card transition-all duration-200 hover:border-white/20 hover:shadow-[0_8px_28px_-10px_rgba(0,0,0,0.6)] hover:-translate-y-0.5">
-                            <div className="text-brand-subtle text-xs uppercase tracking-wide">{k}</div>
-                            <div className={`mt-1 text-lg font-semibold ${k === "Supply" ? "text-center" : ""}`}>{v}</div>
+                        { k: "Ticker", v: "$FROG", d: "The heartbeat of the Froggy ecosystem." },
+                        {
+                            k: "Network",
+                            v: "Sei Network (EVM • Chain ID 1329)",
+                            d: "Fast, secure, and gas-efficient.",
+                        },
+                        {
+                            k: "Total Supply",
+                            v: "1,000,000,000",
+                            d: "Fixed supply. No mints. No burns.",
+                        },
+                        { k: "Tax", v: "0%", d: "Zero on buys and sells." },
+                        {
+                            k: "Liquidity",
+                            v: "Locked",
+                            d: "Verified on-chain and permanent.",
+                        },
+                        {
+                            k: "Holders",
+                            v: "1,279 Holders",
+                            d: "View holder data on Sei Explorer.",
+                            link: "https://seitrace.com/address/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1",
+                        },
+                    ].map(({ k, v, d, link }) => (
+                        <div
+                            key={k}
+                            className="rounded-2xl p-5 border border-white/10 bg-brand-card/60 transition-all duration-200 hover:border-brand-primary/40 hover:-translate-y-0.5 hover:shadow-[0_8px_28px_-10px_rgba(0,0,0,0.6)]"
+                        >
+                            <div className="text-brand-subtle text-xs uppercase tracking-wide">
+                                {k}
+                            </div>
+                            {link ? (
+                                <a
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 block text-lg font-semibold text-brand-primary break-all"
+                                >
+                                    {v}
+                                </a>
+                            ) : (
+                                <div className="mt-1 text-lg font-semibold text-slate-100">{v}</div>
+                            )}
+                            <div className="mt-1 text-slate-400 text-sm">{d}</div>
                         </div>
                     ))}
+                </div>
+
+                {/* Distribution */}
+                <div className="mt-8 rounded-2xl border border-white/10 bg-brand-card/60 p-5 relative overflow-hidden">
+                    {/* Watermark */}
+                    <Image
+                        src="/gallery/froggy-hero.png"
+                        alt=""
+                        aria-hidden="true"
+                        width={400}
+                        height={400}
+                        priority
+                        className="pointer-events-none select-none absolute -right-16 -bottom-20 opacity-5 md:opacity-10"
+                    />
+
+                    <div className="relative">
+                        <h3 className="text-lg font-semibold flex items-center justify-between text-center md:text-left">
+                            <span>Supply Distribution</span>
+                            <span className="text-xs text-brand-subtle">
+                                Percentages set at bonding on 10/11/2024
+                            </span>
+                        </h3>
+
+                        <div className="mt-4">
+                            <Donut data={supplyDistribution} centerLabel="Tokenomics" size={220} thickness={22} />
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -348,23 +649,213 @@ export default function FroggyLanding() {
                 </div>
             </section>
 
+            {/* Gallery */}
+            <section ref={galleryRef} id="gallery" className="mx-auto max-w-6xl px-4 pb-14">
+                <h2 id="gallery-heading" className="text-2xl md:text-3xl font-bold">Gallery</h2>
+                <p className="mt-2 text-slate-300/90 text-sm leading-snug">
+                    On-brand poses of Froggy. Click to view full size.
+                </p>
+
+                {/* Grid */}
+                <ul id="gallery-grid" className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {visibleItems.map((item, i) => (
+                        <li key={item.alt}>
+                            <button
+                                ref={i === activeIndex ? openerRef : undefined}
+                                type="button"
+                                onClick={() => { setActiveIndex(i); setLightboxOpen(true); }}
+                                className="group block w-full rounded-2xl overflow-hidden border border-white/10 bg-brand-card hover:border-brand-primary/40 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+                                aria-label={`Open image: ${item.alt}`}
+                            >
+                                <div className="relative aspect-square">
+                                    <Image
+                                        src={item.src}
+                                        alt={item.alt}
+                                        fill
+                                        sizes="(min-width: 768px) 33vw, 50vw"
+                                        className="object-contain p-3 transition-transform duration-200 group-hover:scale-[1.02]"
+                                        loading="lazy"
+                                        decoding="async"
+                                    />
+                                </div>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+                {/* Show more / Collapse controls */}
+                {(visibleCount < galleryItems.length || visibleCount > PAGE) && (
+                    <div className="mt-4 flex items-center gap-3">
+                        {/* Show more button */}
+                        {visibleCount < galleryItems.length && (
+                            <button
+                                type="button"
+                                aria-controls="gallery-grid"
+                                onClick={() =>
+                                    setVisibleCount(c => Math.min(c + PAGE, galleryItems.length))
+                                }
+                                className="rounded-lg px-4 py-2 border border-white/15 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                            >
+                                Show {Math.min(PAGE, galleryItems.length - visibleCount)} more
+                            </button>
+                        )}
+
+                        {/* Collapse button */}
+                        {visibleCount > PAGE && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setVisibleCount(PAGE);
+                                    setActiveIndex(i => Math.min(i, PAGE - 1)); // ensure opener exists
+                                    queueMicrotask(() =>
+                                        galleryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                                    );
+                                }}
+                                className="rounded-lg px-4 py-2 border border-white/15 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                            >
+                                Collapse
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Lightbox */}
+                {lightboxOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <button
+                            type="button"
+                            aria-label="Close gallery"
+                            className="fixed inset-0 z-50 bg-black/80"
+                            onClick={() => {
+                                setLightboxOpen(false);
+                                openerRef.current?.focus();
+                            }}
+                        />
+                        {/* Dialog */}
+                        <div
+                            ref={lightboxRootRef}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="gallery-heading"
+                            data-lightbox
+                            className="fixed inset-0 z-50 grid place-items-center p-4"
+                        >
+                            <div className="relative w-full max-w-3xl">
+                                <div
+                                    onTouchStart={onTouchStart}
+                                    onTouchEnd={onTouchEnd}
+                                    className="relative aspect-square rounded-2xl bg-brand-card border border-white/10 overflow-hidden"
+                                >
+                                    <Image
+                                        src={galleryItems[activeIndex].src}
+                                        alt={galleryItems[activeIndex].alt}
+                                        fill
+                                        sizes="(min-width: 1024px) 768px, 90vw"
+                                        className="object-contain p-4"
+                                        priority
+                                    />
+                                    <div aria-live="polite" className="sr-only">
+                                        Viewing {galleryItems[activeIndex].alt} ({activeIndex + 1} of {galleryItems.length})
+                                    </div>
+                                </div>
+
+                                {/* Controls */}
+                                <nav
+                                    aria-label="Gallery navigation"
+                                    className="mt-3 flex items-center justify-between text-sm text-slate-300/90"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            className="rounded-lg px-3 py-1 border border-white/15 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                                            onClick={() => setActiveIndex(i => (i - 1 + galleryItems.length) % galleryItems.length)}
+                                            aria-label="Previous image"
+                                        >
+                                            ← Prev
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="rounded-lg px-3 py-1 border border-white/15 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                                            onClick={() => setActiveIndex(i => (i + 1) % galleryItems.length)}
+                                            aria-label="Next image"
+                                        >
+                                            Next →
+                                        </button>
+                                    </div>
+
+                                    <div aria-live="polite">
+                                        {activeIndex + 1} / {galleryItems.length}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className="rounded-lg px-3 py-1 border border-white/15 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                                        onClick={() => {
+                                            setLightboxOpen(false);
+                                            openerRef.current?.focus();
+                                        }}
+                                        aria-label="Close"
+                                    >
+                                        Close ⨯
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </section>
+
             {/* Roadmap */}
             <section id="roadmap" className="mx-auto max-w-6xl px-4 pb-14">
                 <h2 className="text-2xl md:text-3xl font-bold">Roadmap</h2>
+                <p className="mt-2 text-slate-300/90 text-sm leading-snug">
+                    A transparent look at Froggy development path.
+                </p>
+
                 <ol className="mt-6 grid gap-4 md:grid-cols-3">
                     {[
-                        { t: "Phase 1", d: "dApp website features + swap" },
-                        { t: "Phase 2", d: "On-chain streaks + merchant pilots" },
-                        { t: "Phase 3", d: "Ecosystem tools + partnerships" },
-                    ].map(({ t, d }, i) => (
-                        <li key={t} className="rounded-2xl p-5 border border-white/10" style={{ background: brand.card }}>
+                        {
+                            t: "Phase 1",
+                            d: "dApp launch, website integration, and live price with options of swap functionality.",
+                            done: true,
+                        },
+                        {
+                            t: "Phase 2",
+                            d: "Dashboard for on-chain streaks, early supporter badges, and campaign prizes.",
+                            done: false,
+                        },
+                        {
+                            t: "Phase 3",
+                            d: "Expanded ecosystem tools, partnerships, and DeFi platform expansion.",
+                            done: false,
+                        },
+                    ].map(({ t, d, done }, i) => (
+                        <li
+                            key={t}
+                            className="rounded-2xl p-5 border border-white/10 hover:border-brand-primary/40 transition-all duration-200"
+                            style={{
+                                background: "var(--color-brand-card)",
+                                opacity: done ? 0.9 : 1,
+                            }}
+                        >
                             <div className="flex items-center gap-2 text-sm text-slate-400">
-                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full font-semibold" style={{ background: brand.primary, color: "#081318" }}>
+                                <span
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded-full font-semibold"
+                                    style={{
+                                        background: "var(--color-brand-primary)",
+                                        color: "#081318",
+                                    }}
+                                >
                                     {i + 1}
                                 </span>
                                 {t}
                             </div>
-                            <div className="mt-2 font-semibold">{d}</div>
+                            <div className="mt-2 font-semibold text-slate-100">{d}</div>
+                            {done && (
+                                <div className="mt-3 text-xs text-brand-primary font-medium">
+                                    ✓ Completed
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ol>
@@ -373,33 +864,93 @@ export default function FroggyLanding() {
             {/* FAQ */}
             <section id="faq" className="mx-auto max-w-6xl px-4 pb-20">
                 <h2 className="text-2xl md:text-3xl font-bold">FAQ</h2>
+                <p className="mt-2 text-slate-300/90 text-sm leading-snug">
+                    Common questions about $FROG and its ecosystem.
+                </p>
+
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                     {[
-                        ["Is there a tax?", "No. Zero on buys and sells."],
-                        ["Where is liquidity?", "Locked. Verified on-chain."],
-                        ["What is utility?", "Community-first memes, merchant pilots, and on-chain streaks."],
-                    ].map(([q, a]) => (
-                        <div key={q as string} className="rounded-2xl p-5 border border-white/10" style={{ background: brand.card }}>
-                            <div className="font-semibold">{q}</div>
-                            <div className="mt-1 text-slate-300/90 text-sm">{a}</div>
-                        </div>
+                        {
+                            q: "Is there a trading tax?",
+                            a: "No. Zero on buys and sells. Trade to FULL potential!",
+                        },
+                        {
+                            q: "Where is liquidity?",
+                            a: "Locked permanently and verified on-chain. More can be added anytime by Dev team or community members.",
+                        },
+                        {
+                            q: "What is utility?",
+                            a: "Community-first DeFi, liquidity provision token, and on-chain streaks.",
+                        },
+                        {
+                            q: "What chain is Froggy on?",
+                            a: "Sei Network (EVM). Secure, scalable, and low fees.",
+                        },
+                        {
+                            q: "How many tokens exist?",
+                            a: "1 billion total supply. No future mints, no drops, no vesting, fixed forever.",
+                        },
+                    ].map(({ q, a }, i) => (
+                        <details
+                            key={q}
+                            className="group rounded-2xl border border-white/10 bg-brand-card p-5 transition-all duration-200 hover:border-brand-primary/40"
+                        >
+                            <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-slate-100 focus:outline-none">
+                                {q}
+                                <span className="ml-2 text-brand-primary transition-transform duration-200 group-open:rotate-45">
+                                    +
+                                </span>
+                            </summary>
+                            <div className="mt-2 text-slate-300/90 text-sm leading-snug">{a}</div>
+                        </details>
                     ))}
                 </div>
             </section>
 
             {/* Footer */}
-            <footer className="border-t border-white/10">
+            <footer className="border-t border-white/10 bg-brand-card/40">
                 <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-slate-400">
-                    <div className="flex items-center justify-between">
-                        <div>© {new Date().getFullYear()} Froggy Project</div>
-                        <div className="flex gap-4">
-                            <a href="#" className="hover:text-white">X/Twitter</a>
-                            <a href="#" className="hover:text-white">Discord</a>
-                            <a href="#" className="hover:text-white">Docs</a>
+                    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                        <div className="text-center sm:text-left">
+                            © {new Date().getFullYear()} Froggy Project. All rights reserved.
                         </div>
+
+                        <nav className="flex flex-wrap items-center justify-center gap-4">
+                            <a
+                                href="https://x.com/frogonsei" // replace with your real link
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="transition-colors hover:text-brand-primary"
+                            >
+                                X / Twitter
+                            </a>
+                            <a
+                                href="https://discord.gg/frogonsei" // replace with your real link
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="transition-colors hover:text-brand-primary"
+                            >
+                                Discord
+                            </a>
+                            <a
+                                href="https://t.me/frogonsei" // replace with your real link
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="transition-colors hover:text-brand-primary"
+                            >
+                                Telegram
+                            </a>
+                            <a
+                                href="/docs" // replace with your docs path
+                                className="transition-colors hover:text-brand-primary"
+                            >
+                                Docs
+                            </a>
+                        </nav>
                     </div>
                 </div>
             </footer>
+
         </div>
     );
 }
