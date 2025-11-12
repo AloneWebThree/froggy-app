@@ -11,7 +11,7 @@ import froggyBeer from "@public/gallery/froggy-beer.png";
 import froggyCalm from "@public/gallery/froggy-calm.png";
 import froggyCape from "@public/gallery/froggy-cape.png";
 import froggyChampagne from "@public/gallery/froggy-champagne.png";
-import froggyCoffee from "@public/gallery/froggy-coffe.png";
+import froggyCoffee from "@public/gallery/froggy-coffee.png";
 import froggyCook from "@public/gallery/froggy-cook.png";
 import froggyCowboy from "@public/gallery/froggy-cowboy.png";
 import froggyDiamond from "@public/gallery/froggy-diamond.png";
@@ -158,6 +158,45 @@ export default function FroggyLanding() {
     const toggleRef = useRef<HTMLButtonElement | null>(null);
     const firstLinkRef = useRef<HTMLAnchorElement | null>(null);
 
+    // token select state
+    type FromChoice =
+        | { kind: "native"; label: "SEI"; value: "SEI" }
+        | { kind: "erc20"; label: "Native USDC"; value: string }
+        | { kind: "erc20"; label: "Native USDT"; value: string }
+        | { kind: "erc20"; label: "WBTC"; value: string }
+        | { kind: "erc20"; label: "WETH"; value: string }
+        | { kind: "custom"; label: "Custom"; value: string };
+
+    const FROM_PRESETS: FromChoice[] = [
+        { kind: "native", label: "SEI", value: "SEI" },
+        // If you know these, fill real addresses. Otherwise leave commented
+        { kind: "erc20", label: "Native USDC", value: "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392" },
+        { kind: "erc20", label: "Native USDT", value: "0x9151434b16b9763660705744891fA906F660EcC5" },
+        { kind: "erc20", label: "WBTC", value: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c" },
+        { kind: "erc20", label: "WETH", value: "0x160345fC359604fC6e70E3c5fAcbdE5F7A9342d8" },
+        { kind: "custom", label: "Custom", value: "" },
+    ];
+
+    const [fromChoice, setFromChoice] = useState<FromChoice>(FROM_PRESETS[0]);
+    const [customFrom, setCustomFrom] = useState("");
+
+    // derive the actual inputCurrency param for each DEX
+    const inputParam = (() => {
+        if (fromChoice.kind === "custom") return customFrom || "";
+        return fromChoice.value;
+    })();
+
+    // simple 0x address check (not exhaustive)
+    const isAddr = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v);
+
+    // build DEX hrefs using current selection
+    const yakaHref = `https://yaka.finance/swap?inputCurrency=${encodeURIComponent(
+        inputParam || "SEI"
+    )}&outputCurrency=${ADDR.token}`;
+
+    const dragonHref = `https://dragonswap.app/swap?outputCurrency=${ADDR.token
+        }&inputCurrency=${encodeURIComponent(inputParam)}`;
+
     const galleryItems = [
         { src: froggyBase, alt: "Froggy base" },
         { src: froggyBeer, alt: "Froggy beer" },
@@ -188,10 +227,9 @@ export default function FroggyLanding() {
     ] as const;
 
     //Visible pages
-    const PAGE = 6;
+    const PAGE = 3;
     const [visibleCount, setVisibleCount] = useState(PAGE);
     const visibleItems = galleryItems.slice(0, visibleCount);
-
 
     // Lightbox state
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -219,10 +257,10 @@ export default function FroggyLanding() {
 
     //Chart
     const supplyDistribution: Slice[] = [
-        { label: "Liquidity Pool", value: 20, color: "#5AA6FF" }, // primary
-        { label: "Community", value: 70, color: "#6eb819" }, // secondary (big slice)
+        { label: "Liquidity Pool", value: 20, color: "#6eb819" }, // primary
+        { label: "Community", value: 70, color: "#5AA6FF" }, // secondary (big slice)
         { label: "Development Team", value: 5, color: "#93A8C3" },
-        { label: "CEX Reserve", value: 5, color: "#031f18" },  // was #E9F1FF
+        { label: "CEX Reserve", value: 5, color: "#E9F1FF" },  // was #E9F1FF
     ];
 
     // Lightbox keyboard controls
@@ -582,28 +620,69 @@ export default function FroggyLanding() {
                             <Image src="/froggy-cape.png" alt="Froggy icon" width={48} height={48} className="rounded-full" decoding="async" />
                         </div>
 
-                        {/* Inputs (mock) */}
+                        {/* Inputs (real selector) */}
                         <div className="mt-4 space-y-3">
                             <div>
                                 <label className="text-xs text-brand-subtle" htmlFor="from-asset">
                                     From
                                 </label>
-                                <button id="from-asset" type="button" className="mt-1 h-12 w-full rounded-xl bg-white/5 text-left px-3 text-sm">
-                                    Connect wallet to select
-                                </button>
+                                <div className="mt-1 grid gap-2">
+                                    <select
+                                        id="from-asset"
+                                        className="h-12 w-full rounded-xl bg-white/5 text-left px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 text-brand-text"
+                                        style={{
+                                            color: "#E9F1FF",        // visible text color
+                                            backgroundColor: "#121a2e", // matches brand.card
+                                        }}
+                                        value={fromChoice.label}
+                                        onChange={(e) => {
+                                            const pick = FROM_PRESETS.find(p => p.label === e.target.value)!;
+                                            setFromChoice(pick);
+                                        }}
+                                    >
+                                        {FROM_PRESETS.map(p => (
+                                            <option key={p.label} value={p.label}>{p.label}</option>
+                                        ))}
+                                    </select>
+
+                                    {fromChoice.kind === "custom" && (
+                                        <div className="grid gap-1">
+                                            <input
+                                                inputMode="text"
+                                                placeholder="Paste ERC-20 address, e.g. 0xabc…"
+                                                className="h-11 w-full rounded-xl bg-white/5 px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                                                value={customFrom}
+                                                onChange={(e) => setCustomFrom(e.target.value.trim())}
+                                            />
+                                            <div className="text-[11px] text-brand-subtle">
+                                                {customFrom
+                                                    ? isAddr(customFrom)
+                                                        ? "Valid address"
+                                                        : "Enter a 0x + 40 hex address"
+                                                    : "Optional unless using a custom token"}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
                             <div>
                                 <label className="text-xs text-brand-subtle" htmlFor="to-asset">
                                     To ($FROG)
                                 </label>
-                                <button id="to-asset" type="button" className="mt-1 h-12 w-full rounded-xl bg-white/5 text-left px-3 text-sm font-mono">
+                                <button
+                                    id="to-asset"
+                                    type="button"
+                                    className="mt-1 h-12 w-full rounded-xl bg-white/5 text-left px-3 text-sm font-mono"
+                                    title={ADDR.token}
+                                >
                                     0x…{ADDR.token.slice(-6)}
                                 </button>
                             </div>
                         </div>
 
                         <a
-                            href={URL.dragon}
+                            href={dragonHref}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="mt-4 h-11 w-full rounded-2xl bg-brand-secondary font-semibold text-sm text-[#081318] grid place-items-center transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-secondary/50"
@@ -612,7 +691,7 @@ export default function FroggyLanding() {
                         </a>
 
                         <a
-                            href={URL.yaka}
+                            href={yakaHref}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="mt-3 h-11 w-full rounded-2xl bg-brand-primary font-semibold text-sm text-[#081318] grid place-items-center transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/50"
