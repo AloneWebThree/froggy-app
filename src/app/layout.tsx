@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: "Froggy | Zero-tax community token on Sei",
     description: "1B supply. Liquidity locked. Built for memes, merchants, and holders.",
     openGraph: {
-        title: "Froggy — Zero-tax community token on Sei",
+        title: "Froggy | Zero-tax community token on Sei",
         description: "1B supply. Liquidity locked. Built for memes, merchants, and holders.",
         url: "https://your-domain.tld",
         siteName: "Froggy",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: "summary_large_image",
-        title: "Froggy — Zero-tax community token on Sei",
+        title: "Froggy | Zero-tax community token on Sei",
         description: "1B supply. Liquidity locked. Built for memes, merchants, and holders.",
         images: ["/og.jpg"],
     },
