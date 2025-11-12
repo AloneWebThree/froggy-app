@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "Froggy | Zero-tax community token on Sei",
         description: "1B supply. Liquidity locked. Built for memes, merchants, and holders.",
-        url: "https://your-domain.tld",
+        url: "https://frogonsei.app/",
         siteName: "Froggy",
         images: [{ url: "/og.jpg", width: 1200, height: 630 }],
         locale: "en_US",
