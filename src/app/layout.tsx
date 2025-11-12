@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { Providers } from "./providers";
@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Froggy — Zero-tax community token on Sei",
+    title: "Froggy | Zero-tax community token on Sei",
     description: "1B supply. Liquidity locked. Built for memes, merchants, and holders.",
     openGraph: {
         title: "Froggy — Zero-tax community token on Sei",
