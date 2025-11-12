@@ -355,6 +355,9 @@ export default function FroggyLanding() {
         <div className="min-h-screen w-full" style={{ background: brand.bg, color: brand.text }}>
                 <Head>
                     <title>Froggy | Zero-tax utility on Sei Network</title>
+                    <link rel="icon" href="/favicon.ico" sizes="any" />
+                    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+                    <meta name="theme-color" content="#6eb819" />
                     <meta
                         name="description"
                         content="1B supply, zero tax, locked liquidity, and community-driven utility on Sei Network."
