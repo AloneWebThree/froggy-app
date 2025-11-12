@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { Providers } from "./providers";
+import EnterGate from "./EnterGate";
+import AnimatedBackground from "./AnimatedBackground";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,19 +27,24 @@ export const metadata: Metadata = {
     },
     keywords: ["FROG", "Froggy", "Sei", "Sei Network", "crypto", "token", "zero-tax"],
 
-    // 👇 Add this
     icons: {
-        icon: "/favicon.png", // or "/favicon.ico"
+        icon: "/favicon.png",
+        apple: "/apple-touch-icon.png",
     },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en">
-            <body className={inter.className}>
-                <Providers>{children}</Providers>
+            <body>
+                <AnimatedBackground />
+                <Providers>
+                    <EnterGate />
+                    {children}
+                </Providers>
             </body>
         </html>
     );
 }
+
 

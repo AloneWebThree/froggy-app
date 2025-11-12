@@ -1,4 +1,4 @@
-﻿/* Tailwind v4 entry */
+/* Tailwind v4 entry */
 @import "tailwindcss";
 
 /* Design tokens -> generates bg-brand-bg, text-brand-text, etc. */
@@ -15,3 +15,117 @@
 html, body, :root {
     @apply bg-brand-bg text-brand-text;
 }
+
+@keyframes popin-overshoot {
+    0% {
+        transform: scale(.94);
+        opacity: 0
+    }
+
+    60% {
+        transform: scale(1.02);
+        opacity: 1
+    }
+
+    100% {
+        transform: scale(1)
+    }
+}
+
+@keyframes glow {
+    0%,100% {
+        opacity: .30
+    }
+
+    50% {
+        opacity: .55
+    }
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0)
+    }
+
+    50% {
+        transform: translateY(-6px)
+    }
+
+    100% {
+        transform: translateY(0)
+    }
+}
+
+@keyframes float-delayed {
+    0% {
+        transform: translateY(0)
+    }
+
+    50% {
+        transform: translateY(6px)
+    }
+
+    100% {
+        transform: translateY(0)
+    }
+}
+
+@keyframes backdrop {
+    0% {
+        opacity: .85
+    }
+
+    100% {
+        opacity: 1
+    }
+}
+
+.animate-popin-overshoot {
+    animation: popin-overshoot .35s cubic-bezier(.2,.8,.2,1) both
+}
+
+.animate-glow {
+    animation: glow 3.2s ease-in-out infinite
+}
+
+.animate-float {
+    animation: float 4.2s ease-in-out infinite
+}
+
+.animate-float-delayed {
+    animation: float-delayed 4.2s ease-in-out infinite
+}
+
+.animate-backdrop {
+    animation: backdrop .25s ease-out both
+}
+
+.animate-spin-slow {
+    animation: spin 22s linear infinite
+}
+
+@keyframes backdrop {
+    0% {
+        opacity: .85
+    }
+
+    100% {
+        opacity: 1
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg)
+    }
+}
+/* needed for animate-spin-slow */
+.animate-backdrop {
+    animation: backdrop .25s ease-out both
+}
+
+.animate-spin-slow {
+    animation: spin 22s linear infinite
+}
+
+
