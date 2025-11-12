@@ -5,6 +5,7 @@ import { WalletButton } from "./providers";
 import LiveStats from "@/components/LiveStats";
 import Image from "next/image";
 import Head from "next/head";
+import { Twitter, Send } from "lucide-react"; // Send = Telegram icon
 
 import froggyBase from "@public/gallery/froggy-base.png";
 import froggyBeer from "@public/gallery/froggy-beer.png";
@@ -354,7 +355,7 @@ export default function FroggyLanding() {
     return (
         <div className="min-h-screen w-full" style={{ background: brand.bg, color: brand.text }}>
                 <Head>
-                    <title>Froggy | Zero-tax utility on Sei Network</title>
+                    <title>Froggy Zero-tax utility on Sei Network</title>
                     <meta name="theme-color" content="#6eb819" />
                     <meta
                         name="description"
@@ -382,6 +383,26 @@ export default function FroggyLanding() {
                             <a href="#roadmap" className="hover:text-white">Roadmap</a>
                             <a href="#faq" className="hover:text-white">FAQ</a>
                         </nav>
+                        {/* Social icons */}
+                        <div className="hidden md:flex items-center gap-3">
+                            <a
+                                href="https://x.com/frogonsei"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Froggy on X"
+                            >
+                                <Twitter size={20} className="opacity-80 hover:opacity-100 text-brand-text" />
+                            </a>
+
+                            <a
+                                href="https://t.me/frogonsei"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Froggy on Telegram"
+                            >
+                                <Send size={20} className="opacity-80 hover:opacity-100 text-brand-text" />
+                            </a>
+                        </div>
                         <div className="flex items-center gap-3">
                             <div className="hidden md:block">
                                 <WalletButton />
@@ -437,7 +458,31 @@ export default function FroggyLanding() {
                                         </a>
                                     </li>
                                 ))}
+                                <div className="mt-4 flex items-center gap-4 px-4">
+                                    <a
+                                        href="https://x.com/frogonsei"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label="Froggy on X"
+                                    >
+                                        <Twitter size={22} className="opacity-80 hover:opacity-100 text-brand-text" />
+                                    </a>
+
+                                    <a
+                                        href="https://t.me/frogonsei"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label="Froggy on Telegram"
+                                    >
+                                        <Send size={22} className="opacity-80 hover:opacity-100 text-brand-text" />
+                                    </a>
+                                </div>
                             </ul>
+                            {/* Mobile wallet button */}
+                            <div className="mt-4 px-4 pb-4 md:hidden">
+                                <WalletButton />
+                            </div>
+
                         </nav>
                     </>
                 )}
