@@ -24,6 +24,11 @@ export const metadata: Metadata = {
         images: ["/og.jpg"],
     },
     keywords: ["FROG", "Froggy", "Sei", "Sei Network", "crypto", "token", "zero-tax"],
+
+    // 👇 Add this
+    icons: {
+        icon: "/favicon.png", // or "/favicon.ico"
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
