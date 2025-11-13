@@ -368,7 +368,6 @@ export default function FroggyLanding() {
                         content="Trade $FROG and join the army on Sei EVM."
                     />
                     <meta property="og:image" content="/og-froggy.png" />
-                    <meta name="theme-color" content="#6eb819" />
                 </Head>
             <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-white/5">
                 <div className="mx-auto max-w-6xl px-4">
@@ -523,7 +522,13 @@ export default function FroggyLanding() {
                     {/* Mascot card placeholder */}
                     <div className="relative">
                         <div className="relative mx-auto aspect-square max-w-sm rounded-3xl shadow-xl" style={{ background: brand.card }}>
-                            <Image src="/froggy-base.png" alt="Froggy base mascot" fill sizes="(min-width: 768px) 24rem, 18rem" className="object-contain p-4" />
+                            <Image
+                                src={froggyBase}
+                                alt="Froggy base mascot"
+                                fill
+                                sizes="(min-width: 768px) 24rem, 18rem"
+                                className="object-contain p-4"
+                            />
                         </div>
                         <div className="absolute -top-3 -right-3 rounded-full px-3 py-1 text-xs font-semibold" style={{ background: brand.secondary, boxShadow: `0 0 10px ${brand.secondary}` }}>
                             Live
@@ -561,7 +566,7 @@ export default function FroggyLanding() {
                         },
                         {
                             k: "Holders",
-                            v: "1,279 Holders",
+                            v: "1,288 Holders",
                             d: "View holder data on Sei Explorer.",
                             link: "https://seitrace.com/token/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1&tab=holders",
                         },
@@ -937,7 +942,7 @@ export default function FroggyLanding() {
                     {[
                         {
                             t: "Phase 1",
-                            d: "dApp launch, website integration, and live price with swap options functionality.",
+                            d: "dApp launch, pricing, gallery, and DEX-routed swaps",
                             done: true,
                         },
                         {
