@@ -479,11 +479,6 @@ export default function FroggyLanding() {
                                     </a>
                                 </div>
                             </ul>
-                            {/* Mobile wallet button */}
-                            <div className="mt-4 px-4 pb-4 md:hidden">
-                                <WalletButton />
-                            </div>
-
                         </nav>
                     </>
                 )}
