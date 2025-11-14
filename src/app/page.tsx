@@ -264,38 +264,53 @@ export default function FroggyLanding() {
         { label: "CEX Reserve", value: 5, color: "#E9F1FF" },  // was #E9F1FF
     ];
 
-    // Lightbox keyboard controls
+    // Lightbox: keyboard controls + scroll lock + focus trap
     useEffect(() => {
-        if (!lightboxOpen) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") setLightboxOpen(false);
-            if (e.key === "ArrowRight") setActiveIndex((i) => (i + 1) % galleryItems.length);
-            if (e.key === "ArrowLeft") setActiveIndex((i) => (i - 1 + galleryItems.length) % galleryItems.length);
-        };
-        document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
-    }, [lightboxOpen, galleryItems.length]);
+        if (!lightboxOpen) {
+            // ensure scroll restored when closed
+            document.body.style.overflow = "";
+            return;
+        }
 
-    // Gallery scroll lock
-    useEffect(() => {
-        document.body.style.overflow = lightboxOpen ? "hidden" : "";
-        return () => { document.body.style.overflow = ""; };
-    }, [lightboxOpen]);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
 
-    // Gallery focus
-    useEffect(() => {
-        if (!lightboxOpen || !lightboxRootRef.current) return;
         const root = lightboxRootRef.current;
         const selector = 'a, button, [tabindex]:not([tabindex="-1"])';
+
         const getFocusables = () =>
-            Array.from(root.querySelectorAll<HTMLElement>(selector))
-                .filter(el => !el.hasAttribute("disabled"));
+            root
+                ? Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
+                    (el) => !el.hasAttribute("disabled"),
+                )
+                : [];
+
         const onKeyDown = (e: KeyboardEvent) => {
+            // close
+            if (e.key === "Escape") {
+                setLightboxOpen(false);
+                openerRef.current?.focus();
+                return;
+            }
+
+            // arrow navigation
+            if (e.key === "ArrowRight") {
+                setActiveIndex((i) => (i + 1) % galleryItems.length);
+                return;
+            }
+            if (e.key === "ArrowLeft") {
+                setActiveIndex((i) => (i - 1 + galleryItems.length) % galleryItems.length);
+                return;
+            }
+
+            // focus trap
             if (e.key !== "Tab") return;
             const els = getFocusables();
             if (els.length === 0) return;
+
             const first = els[0];
             const last = els[els.length - 1];
+
             if (e.shiftKey && document.activeElement === first) {
                 e.preventDefault();
                 last.focus();
@@ -304,16 +319,24 @@ export default function FroggyLanding() {
                 first.focus();
             }
         };
+
         document.addEventListener("keydown", onKeyDown);
-        return () => document.removeEventListener("keydown", onKeyDown);
-    }, [lightboxOpen]);
 
-    // Nav menu
-    useEffect(() => {
-        if (menuOpen && firstLinkRef.current) firstLinkRef.current.focus();
-    }, [menuOpen]);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [lightboxOpen, galleryItems.length]);
 
+    // Mobile nav: focus, Esc key, click-outside
     useEffect(() => {
+        if (!menuOpen) return;
+
+        // focus first link when menu opens
+        if (firstLinkRef.current) {
+            firstLinkRef.current.focus();
+        }
+
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
                 e.stopPropagation();
@@ -321,35 +344,26 @@ export default function FroggyLanding() {
                 toggleRef.current?.focus();
             }
         };
-        if (menuOpen) document.addEventListener("keydown", onKeyDown);
-        return () => document.removeEventListener("keydown", onKeyDown);
-    }, [menuOpen]);
-
-    useEffect(() => {
-        if (!menuOpen) return;
 
         const onPointerDown = (e: PointerEvent) => {
             const nav = document.getElementById("mobile-nav");
             if (nav && (nav === e.target || nav.contains(e.target as Node))) return;
+
             const btn = toggleRef.current;
             if (btn && (btn === e.target || btn.contains(e.target as Node))) return;
+
             setMenuOpen(false);
             toggleRef.current?.focus();
         };
 
+        document.addEventListener("keydown", onKeyDown);
         document.addEventListener("pointerdown", onPointerDown, true);
-        return () => document.removeEventListener("pointerdown", onPointerDown, true);
+
+        return () => {
+            document.removeEventListener("keydown", onKeyDown);
+            document.removeEventListener("pointerdown", onPointerDown, true);
+        };
     }, [menuOpen]);
-
-    const brand = {
-        bg: "#0b1221",
-        primary: "#6eb819",
-        secondary: "#5AA6FF",
-        text: "#E9F1FF",
-        card: "#121a2e",
-        subtle: "#93A8C3",
-    } as const;
-
 
     //Main page section
     return (
