@@ -10,7 +10,7 @@ import {
     useConnect,
     useDisconnect,
 } from "wagmi";
-import { injected, walletConnect } from "wagmi/connectors";
+import { injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { defineChain } from "viem";
 
@@ -25,9 +25,7 @@ const sei = defineChain({
     },
 });
 
-const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-
-// --- wagmi config: injected + (optional) WalletConnect ---
+// --- wagmi config: injected only (browser wallets) ---
 export const config = createConfig({
     chains: [sei],
     transports: { [sei.id]: http("https://evm-rpc.sei-apis.com") },
@@ -35,20 +33,6 @@ export const config = createConfig({
         injected({
             shimDisconnect: true,
         }),
-        ...(wcProjectId
-            ? [
-                walletConnect({
-                    projectId: wcProjectId,
-                    showQrModal: true,
-                    metadata: {
-                        name: "Froggy dApp",
-                        description: "Zero-tax community token on Sei",
-                        url: "https://frogonsei.app",
-                        icons: ["https://frogonsei.app/favicon.png"],
-                    },
-                }),
-            ]
-            : []),
     ],
 });
 
@@ -66,44 +50,32 @@ export function Providers({ children }: { children: ReactNode }) {
     );
 }
 
-// --- reusable wallet button used in header + mobile menu ---
+// --- reusable wallet button (desktop + mobile) ---
 export function WalletButton() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
 
     const injectedConnector = connectors.find((c) => c.id === "injected");
-    const wcConnector = connectors.find((c) => c.id === "walletConnect");
 
     const shortAddr = (addr?: string) =>
         addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "";
 
+    // Not connected: single browser-wallet button
     if (!isConnected) {
         return (
-            <div className="flex gap-2">
-                {/* Browser Wallet */}
-                <button
-                    type="button"
-                    disabled={isPending || !injectedConnector}
-                    onClick={() => injectedConnector && connect({ connector: injectedConnector })}
-                    className="rounded-xl px-4 py-2 text-sm font-semibold bg-brand-primary text-[#081318] hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50 disabled:opacity-60"
-                >
-                    {isPending && injectedConnector ? "Connecting…" : "Browser Wallet"}
-                </button>
-
-                {/* WalletConnect (only active if configured) */}
-                <button
-                    type="button"
-                    disabled={isPending || !wcConnector}
-                    onClick={() => wcConnector && connect({ connector: wcConnector })}
-                    className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 text-brand-text border border-white/15 hover:bg-white/10 hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/40 disabled:opacity-60"
-                >
-                    {isPending && wcConnector ? "Connecting…" : "WalletConnect"}
-                </button>
-            </div>
+            <button
+                type="button"
+                disabled={isPending || !injectedConnector}
+                onClick={() => injectedConnector && connect({ connector: injectedConnector })}
+                className="rounded-xl px-4 py-2 text-sm font-semibold bg-brand-primary text-[#081318] hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50 disabled:opacity-60"
+            >
+                {isPending && injectedConnector ? "Connecting…" : "Connect Wallet"}
+            </button>
         );
     }
 
+    // Connected: show short address, click to disconnect
     return (
         <button
             type="button"
