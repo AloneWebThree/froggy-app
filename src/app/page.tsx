@@ -456,8 +456,16 @@ export default function FroggyLanding() {
                                 toggleRef.current?.focus();
                             }}
                         />
-                        <nav id="mobile-nav" aria-label="Primary" className="md:hidden border-t border-white/10 relative z-50">
-                            <ul role="menu" className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 text-sm">
+
+                        <nav
+                            id="mobile-nav"
+                            aria-label="Primary"
+                            className="md:hidden border-t border-white/10 relative z-50"
+                        >
+                            <ul
+                                role="menu"
+                                className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 text-sm"
+                            >
                                 {[
                                     { id: "token", label: "Token" },
                                     { id: "swap", label: "Swap" },
@@ -480,14 +488,27 @@ export default function FroggyLanding() {
                                         </a>
                                     </li>
                                 ))}
-                                <div className="mt-4 flex items-center gap-4 px-4">
+
+                                {/* Wallet button on mobile */}
+                                <li role="none" className="mt-3">
+                                    <WalletButton />
+                                </li>
+
+                                {/* Social icons */}
+                                <li
+                                    role="none"
+                                    className="mt-4 flex items-center gap-4"
+                                >
                                     <a
                                         href="https://x.com/frogonsei"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         aria-label="Froggy on X"
                                     >
-                                        <Twitter size={22} className="opacity-80 hover:opacity-100 text-brand-text" />
+                                        <Twitter
+                                            size={22}
+                                            className="opacity-80 hover:opacity-100 text-brand-text"
+                                        />
                                     </a>
 
                                     <a
@@ -496,9 +517,12 @@ export default function FroggyLanding() {
                                         rel="noopener noreferrer"
                                         aria-label="Froggy on Telegram"
                                     >
-                                        <Send size={22} className="opacity-80 hover:opacity-100 text-brand-text" />
+                                        <Send
+                                            size={22}
+                                            className="opacity-80 hover:opacity-100 text-brand-text"
+                                        />
                                     </a>
-                                </div>
+                                </li>
                             </ul>
                         </nav>
                     </>
