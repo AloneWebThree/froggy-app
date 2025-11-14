@@ -34,6 +34,14 @@ import froggySurf from "@public/gallery/froggy-surf.png";
 import froggyVik from "@public/gallery/froggy-vik.png";
 import froggyYaka from "@public/gallery/froggy-yaka.png";
 
+const brand = {
+    bg: "#0b1221",
+    primary: "#6eb819",
+    secondary: "#5AA6FF",
+    text: "#E9F1FF",
+    card: "#121a2e",
+    subtle: "#93A8C3",
+} as const;
 
 const ADDR = {
   token: "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9",
