@@ -5,6 +5,10 @@ import { WalletButton } from "./providers";
 import LiveStats from "@/components/LiveStats";
 import Image from "next/image";
 import Head from "next/head";
+import { useAccount } from "wagmi";
+import Link from "next/link";
+// ... your other imports (Image, brand, ADDR, froggyBase, etc.)
+
 import { Twitter, Send } from "lucide-react"; // Send = Telegram icon
 
 import froggyBase from "@public/gallery/froggy-base.png";
@@ -373,6 +377,19 @@ export default function FroggyLanding() {
         };
     }, [menuOpen]);
 
+    // Dashboard check
+    const { isConnected } = useAccount();
+
+    const [mounted, setMounted] = useState(false);
+
+    // This effect only runs on the client to avoid hydration mismatch for dashboardEnabled
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const dashboardEnabled = mounted && isConnected;
+
     //Main page section
     return (
         <div className="min-h-screen w-full" style={{ background: brand.bg, color: brand.text }}>
@@ -547,6 +564,7 @@ export default function FroggyLanding() {
                             1B supply. Liquidity locked. Built for memes, investors, and holders. Utility that compounds with every holder.
                         </p>
                         <p className="mt-4 text-slate-300/90 max-w-prose">Contract is immutable and finalized!</p>
+
                         <div className="mt-6 flex flex-wrap gap-3">
                             <a
                                 href="#swap"
@@ -555,11 +573,33 @@ export default function FroggyLanding() {
                             >
                                 Trade $FROG
                             </a>
-                            <a href="#token"
-                                className="rounded-xl px-5 py-2.5 text-sm font-semibold border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10">
+
+                            <a
+                                href="#token"
+                                className="rounded-xl px-5 py-2.5 text-sm font-semibold border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
+                            >
                                 Token details
                             </a>
+
+                            {/* Holder Dashboard — blue + disabled when not connected, green + active when connected */}
+                            <Link
+                                href={dashboardEnabled ? "/dashboard" : "#"}
+                                onClick={(e) => {
+                                    if (!dashboardEnabled) e.preventDefault(); // no nav if not ready
+                                }}
+                                className={`rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150
+                                    ${dashboardEnabled ? "hover:scale-[1.02] cursor-pointer" : "cursor-not-allowed"}`}
+                                style={{
+                                    background: dashboardEnabled ? brand.secondary : brand.secondary, // green when active, blue when disabled
+                                    opacity: dashboardEnabled ? 1 : 0.5,
+                                }}
+                            >
+                                Dashboard
+                            </Link>
+
                         </div>
+
+
                         <div className="mt-6 text-xs text-brand-subtle leading-snug">
                             CA: <code className="select-all">{ADDR.token}</code>
                         </div>
@@ -576,12 +616,16 @@ export default function FroggyLanding() {
                                 className="object-contain p-4"
                             />
                         </div>
-                        <div className="absolute -top-3 -right-3 rounded-full px-3 py-1 text-xs font-semibold" style={{ background: brand.secondary, boxShadow: `0 0 10px ${brand.secondary}` }}>
+                        <div
+                            className="absolute -top-3 -right-3 rounded-full px-3 py-1 text-xs font-semibold"
+                            style={{ background: brand.secondary, boxShadow: `0 0 10px ${brand.secondary}` }}
+                        >
                             Live
                         </div>
                     </div>
                 </div>
             </section>
+
 
             {/* Token Section */}
             <section id="token" className="mx-auto max-w-6xl px-4 pt-6 pb-14">
