@@ -847,7 +847,7 @@ export default function FroggyLanding() {
 
                         <div className="mt-4 grid grid-cols-2 gap-2">
                             <a href={URL.tokenExplorer} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5">
-                                View token on Seitrace
+                                View on Seitrace
                             </a>
                             <a href={URL.dexFull} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5">
                                 View full chart
