@@ -843,6 +843,9 @@ export default function FroggyLanding() {
                             </div>
                         </div>
 
+                        <div className="mt-4 border-t border-white/10 pt-4" />
+                        <div className="text-sm text-brand-subtle">On-chain Stats</div>
+
                         <LiveStats />
 
                         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -854,7 +857,7 @@ export default function FroggyLanding() {
                             </a>
                         </div>
 
-                        <div className="mt-12 text-[11px] text-brand-subtle/90 leading-snug">Uses external DEX for execution. Slippage and fees apply.</div>
+                        <div className="mt-4 text-[11px] text-brand-subtle/90 leading-snug">Uses external DEX for execution. Slippage and fees apply.</div>
                     </div>
                 </div>
             </section>
