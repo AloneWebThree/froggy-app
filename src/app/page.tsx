@@ -53,7 +53,7 @@ const ADDR = {
 };
 
 const URL = {
-    dexEmbed: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=1d`,
+    dexEmbed: `https://dexscreener.com/seiv2/${ADDR.pair}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTimeframesToolbar=0&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=1D`,
     dexFull: `https://dexscreener.com/seiv2/${ADDR.pair}`,
 
     pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
