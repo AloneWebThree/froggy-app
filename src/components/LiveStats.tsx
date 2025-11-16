@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -13,7 +13,7 @@ export default function LiveStats() {
     const { data, isLoading } = useQuery({
         queryKey: ["frog-stats"],
         queryFn: async () => (await fetch("/api/frog-stats")).json(),
-        refetchInterval: 30_000, // 30s
+        refetchInterval: 60_000, // 60s
     });
 
     const price = data?.priceUsd ?? 0;

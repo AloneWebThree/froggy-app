@@ -53,13 +53,16 @@ const ADDR = {
 };
 
 const URL = {
-  geckoEmbed: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=1d`,
-    geckoFull: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}`,
-        pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
-            tokenExplorer: `https://seitrace.com/token/${ADDR.token}?chain=pacific-1`,
-                dragon: `https://dragonswap.app/swap?outputCurrency=${ADDR.token}&inputCurrency=`,
-                    yaka: `https://yaka.finance/swap?inputCurrency=SEI&outputCurrency=${ADDR.token}`,
+    dexEmbed: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=1d`,
+    dexFull: `https://dexscreener.com/seiv2/${ADDR.pair}`,
+
+    pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
+    tokenExplorer: `https://seitrace.com/token/${ADDR.token}?chain=pacific-1`,
+
+    dragon: `https://dragonswap.app/swap?outputCurrency=${ADDR.token}&inputCurrency=`,
+    yaka: `https://yaka.finance/swap?inputCurrency=SEI&outputCurrency=${ADDR.token}`,
 };
+
 
 function CopyButton({ value, label }: { value: string; label: string }) {
     const [msg, setMsg] = useState("");
@@ -714,7 +717,7 @@ export default function FroggyLanding() {
                     <div className="rounded-2xl overflow-hidden border border-white/10 bg-brand-card h-[min(70vh,680px)] min-h-[520px] flex flex-col">
                         <iframe
                             title="FROG/SEI price chart on GeckoTerminal"
-                            src={URL.geckoEmbed}
+                            src={URL.dexEmbed}
                             className="w-full flex-1"
                             loading="lazy"
                             referrerPolicy="no-referrer"
@@ -731,7 +734,7 @@ export default function FroggyLanding() {
                                 <a href={URL.pairExplorer} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg px-2 py-1 border border-white/10 hover:bg-white/5">
                                     Explorer ↗
                                 </a>
-                                <a href={URL.geckoFull} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg px-2 py-1 border border-white/10 hover:bg-white/5">
+                                <a href={URL.dexFull} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg px-2 py-1 border border-white/10 hover:bg-white/5">
                                     Full chart ↗
                                 </a>
                             </div>
@@ -846,7 +849,7 @@ export default function FroggyLanding() {
                             <a href={URL.tokenExplorer} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5">
                                 View token on Seitrace
                             </a>
-                            <a href={URL.geckoFull} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5">
+                            <a href={URL.dexFull} target="_blank" rel="noopener noreferrer" className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5">
                                 View full chart
                             </a>
                         </div>
