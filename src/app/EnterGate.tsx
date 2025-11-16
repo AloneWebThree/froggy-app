@@ -3,8 +3,20 @@
 
 import { useEffect, useState, useCallback } from "react";
 
+const SESSION_KEY = "froggy_enter_gate_seen";
+
 export default function EnterGate() {
-    const [show, setShow] = useState(true);
+    const [show, setShow] = useState(false);
+
+    // On mount, decide whether to show based on sessionStorage
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const seen = window.sessionStorage.getItem(SESSION_KEY);
+        if (!seen) {
+            setShow(true);
+        }
+    }, []);
 
     // Strong scroll lock while the gate is visible
     useEffect(() => {
@@ -44,6 +56,9 @@ export default function EnterGate() {
     }, [show]);
 
     const handleEnter = useCallback(() => {
+        if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(SESSION_KEY, "1");
+        }
         setShow(false);
     }, []);
 

@@ -574,13 +574,6 @@ export default function FroggyLanding() {
                                 Trade $FROG
                             </a>
 
-                            <a
-                                href="#token"
-                                className="rounded-xl px-5 py-2.5 text-sm font-semibold border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                            >
-                                Token details
-                            </a>
-
                             {/* Holder Dashboard — blue + disabled when not connected, green + active when connected */}
                             <Link
                                 href={dashboardEnabled ? "/dashboard" : "#"}
@@ -605,9 +598,9 @@ export default function FroggyLanding() {
                         </div>
                     </div>
 
-                    {/* Mascot card placeholder */}
+                    {/* Mascot card */}
                     <div className="relative">
-                        <div className="relative mx-auto aspect-square max-w-sm rounded-3xl shadow-xl" style={{ background: brand.card }}>
+                        <div className="relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/25 shadow-xl overflow-hidden">
                             <Image
                                 src={froggyBase}
                                 alt="Froggy base mascot"
@@ -616,10 +609,8 @@ export default function FroggyLanding() {
                                 className="object-contain p-4"
                             />
                         </div>
-                        <div
-                            className="absolute -top-3 -right-3 rounded-full px-3 py-1 text-xs font-semibold"
-                            style={{ background: brand.secondary, boxShadow: `0 0 10px ${brand.secondary}` }}
-                        >
+
+                        <div className="absolute -top-3 -right-3 rounded-full border border-white/15 bg-brand-secondary/20 px-3 py-1 text-[11px] font-semibold text-brand-text">
                             Live
                         </div>
                     </div>
