@@ -1135,7 +1135,7 @@ export default function FroggyLanding() {
                                 X / Twitter
                             </a>
                             <a
-                                href="https://discord.gg/frogonsei" // replace with your real link
+                                href="https://discord.gg/" // replace with your real link
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="transition-colors hover:text-brand-primary"
