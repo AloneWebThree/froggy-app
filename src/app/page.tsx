@@ -53,7 +53,7 @@ const ADDR = {
 };
 
 const URL = {
-    dexEmbed: `https://dexscreener.com/seiv2/${ADDR.pair}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTimeframesToolbar=0&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=1D`,
+    dexEmbed: `https://dexscreener.com/seiv2/${ADDR.pair}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTimeframesToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=1D`,
     dexFull: `https://dexscreener.com/seiv2/${ADDR.pair}`,
 
     pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
@@ -842,9 +842,6 @@ export default function FroggyLanding() {
                                 </div>
                             </div>
                         </div>
-
-                        <div className="mt-4 border-t border-white/10 pt-4" />
-                        <div className="text-sm text-brand-subtle">On-chain Stats</div>
 
                         <LiveStats />
 
