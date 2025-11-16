@@ -230,9 +230,18 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-                                Froggy Dashboard
-                            </h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                                    Froggy Dashboard
+                                </h1>
+
+                                <a
+                                    href="/"
+                                    className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-brand-subtle border border-white/10 hover:bg-white/10 transition-colors"
+                                >
+                                    ← Back to Landing
+                                </a>
+                            </div>
                         </div>
                         <p className="mt-1 text-sm text-brand-subtle">
                             Lock in your daily $FROG streak and earn on-chain rewards over time.
