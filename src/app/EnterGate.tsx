@@ -101,7 +101,7 @@ export default function EnterGate() {
                         className="group relative mx-auto mt-8 inline-flex w-full max-w-[240px] items-center justify-center rounded-xl px-6 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand-primary)] hover:scale-[1.02] active:scale-[0.99] transition-transform"
                         style={{ background: "var(--color-brand-primary)", color: "#081318" }}
                     >
-                        <span className="relative z-10">Enter</span>
+                        <span className="relative z-10">Hop In</span>
                         <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
                             <span
                                 className="absolute -left-1/3 top-0 h-full w-1/3 translate-x-0 skew-x-[-20deg] opacity-0 group-hover:opacity-30 group-hover:translate-x-[220%] transition-all duration-700"
@@ -117,7 +117,7 @@ export default function EnterGate() {
                     <div className="pointer-events-none absolute -right-6 -bottom-6 h-4 w-4 rounded-full bg-[#5AA6FF] opacity-70 animate-float-delayed" />
 
                     <p className="mt-4 text-xs text-brand-subtle">
-                        By entering you accept the site terms.
+                        Leap BEYOND Limits!
                     </p>
                 </div>
             </div>
