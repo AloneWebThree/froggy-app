@@ -449,7 +449,7 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-sm text-brand-subtle">
-                                        Check in once per 24hr to extend your streak, how long can you go?
+                                        Check in once per 24hr to extend your streak, DCA is king!
                                     </p>
                                     <p className="mt-1 text-[11px] text-brand-subtle">
                                         Daily reset: <span className="font-mono">00:00 UTC</span>.
