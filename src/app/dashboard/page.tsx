@@ -94,22 +94,22 @@ export default function DashboardPage() {
     let currentStreak = 0;
     let bestStreak = 0;
     let totalCheckIns = 0;
-    let lastCheckInDay: number | null = null; // NEW
+    let lastCheckInDay: number | null = null;
+    let lastRecordedBalance: bigint | null = null; // NEW
 
     if (userState) {
         const u = userState as UserStateTuple;
         currentStreak = u[0];
         bestStreak = u[1];
         totalCheckIns = u[2];
-        lastCheckInDay = Number(u[3]); // NEW: read lastCheckInDay
-        // u[4] lastRecordedBalance (unused in UI for now)
+        lastCheckInDay = Number(u[3]);
+        lastRecordedBalance = u[4]; // NEW: on-chain last recorded FROG balance (raw units)
     }
 
     // Track today's UTC day index once on the client
     const [currentUtcDay, setCurrentUtcDay] = useState<number | null>(null);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         const nowSeconds = Date.now() / 1000;
         const dayIndex = Math.floor(nowSeconds / 86400); // same as Solidity day index
         setCurrentUtcDay(dayIndex);
@@ -151,6 +151,14 @@ export default function DashboardPage() {
         return Number(frogBalanceRaw) / 10 ** decimals;
     }, [frogBalanceRaw, frogDecimalsRaw]);
 
+    // NEW: check if current raw balance > lastRecordedBalance (both in raw units)
+    const hasIncreasedBalance =
+        frogBalanceRaw !== undefined &&
+            frogBalanceRaw !== null &&
+            lastRecordedBalance !== null
+            ? (frogBalanceRaw as bigint) > lastRecordedBalance
+            : true; // if no history, allow check-in
+
     // ===== WRITE: checkIn() =====
     const {
         data: txHash,
@@ -188,7 +196,8 @@ export default function DashboardPage() {
         wrongNetwork ||
         isCheckInPending ||
         isConfirmingTx ||
-        hasCheckedInToday; // NEW
+        hasCheckedInToday ||
+        !hasIncreasedBalance; // NEW
 
     let checkInLabel: string;
     if (!isConnected) {
@@ -197,8 +206,10 @@ export default function DashboardPage() {
         checkInLabel = "Switch to Sei EVM";
     } else if (isCheckInPending || isConfirmingTx) {
         checkInLabel = "Checking in...";
-    } else if (hasCheckedInToday) { // NEW
+    } else if (hasCheckedInToday) {
         checkInLabel = "Checked in ✓";
+    } else if (!hasIncreasedBalance) {
+        checkInLabel = "Increase FROG balance to check in";
     } else {
         checkInLabel = "Check in for today";
     }
