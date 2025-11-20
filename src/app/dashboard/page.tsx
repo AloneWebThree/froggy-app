@@ -95,7 +95,7 @@ export default function DashboardPage() {
     let bestStreak = 0;
     let totalCheckIns = 0;
     let lastCheckInDay: number | null = null;
-    let lastRecordedBalance: bigint | null = null; // NEW
+    let lastRecordedBalance: bigint | null = null;
 
     if (userState) {
         const u = userState as UserStateTuple;
@@ -103,7 +103,7 @@ export default function DashboardPage() {
         bestStreak = u[1];
         totalCheckIns = u[2];
         lastCheckInDay = Number(u[3]);
-        lastRecordedBalance = u[4]; // NEW: on-chain last recorded FROG balance (raw units)
+        lastRecordedBalance = u[4];
     }
 
     // Track today's UTC day index once on the client
@@ -111,8 +111,10 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const nowSeconds = Date.now() / 1000;
-        const dayIndex = Math.floor(nowSeconds / 86400); // same as Solidity day index
-        setCurrentUtcDay(dayIndex);
+        const dayIndex = Math.floor(nowSeconds / 86400);
+
+        // wrap state update in a microtask
+        Promise.resolve().then(() => setCurrentUtcDay(dayIndex));
     }, []);
 
     // Has user already checked in today (UTC)?
@@ -123,8 +125,14 @@ export default function DashboardPage() {
 
     const streakStatus =
         currentStreak === 0
-            ? { label: "Inactive", tone: "bg-red-500/15 text-red-300 border-red-500/30" }
-            : { label: "Active", tone: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" };
+            ? {
+                label: "Inactive",
+                tone: "bg-red-500/15 text-red-300 border-red-500/30",
+            }
+            : {
+                label: "Active",
+                tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/40",
+            };
 
     // ===== READ: FROG token balance =====
     const { data: frogBalanceRaw } = useReadContract({
@@ -151,13 +159,13 @@ export default function DashboardPage() {
         return Number(frogBalanceRaw) / 10 ** decimals;
     }, [frogBalanceRaw, frogDecimalsRaw]);
 
-    // NEW: check if current raw balance > lastRecordedBalance (both in raw units)
+    // Check if current raw balance > lastRecordedBalance (both in raw units)
     const hasIncreasedBalance =
         frogBalanceRaw !== undefined &&
             frogBalanceRaw !== null &&
             lastRecordedBalance !== null
             ? (frogBalanceRaw as bigint) > lastRecordedBalance
-            : true; // if no history, allow check-in
+            : true; // if no history loaded yet, let contract enforce
 
     // ===== WRITE: checkIn() =====
     const {
@@ -197,7 +205,7 @@ export default function DashboardPage() {
         isCheckInPending ||
         isConfirmingTx ||
         hasCheckedInToday ||
-        !hasIncreasedBalance; // NEW
+        !hasIncreasedBalance;
 
     let checkInLabel: string;
     if (!isConnected) {
@@ -209,10 +217,35 @@ export default function DashboardPage() {
     } else if (hasCheckedInToday) {
         checkInLabel = "Checked in ✓";
     } else if (!hasIncreasedBalance) {
-        checkInLabel = "Increase FROG balance to check in";
+        checkInLabel = "Increase your FROG balance to check in";
     } else {
         checkInLabel = "Check in for today";
     }
+
+    let checkInColor = "";
+
+    if (!isConnected) {
+        checkInColor = "bg-[#3c3c3c] text-white/60 border border-white/10";
+
+    } else if (wrongNetwork) {
+        checkInColor = "bg-yellow-500 text-black hover:bg-yellow-400";
+
+    } else if (isCheckInPending || isConfirmingTx) {
+        checkInColor = "bg-brand-primary/70 text-black animate-pulse";
+
+    } else if (hasCheckedInToday) {
+        // Success / completed — FROGGY GREEN
+        checkInColor = "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
+
+    } else if (!hasIncreasedBalance) {
+        // Froggy blush
+        checkInColor = "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
+
+    } else {
+        // Ready
+        checkInColor = "bg-brand-primary text-[#081318] hover:scale-[1.02]";
+    }
+
 
     // User-friendly error messages
     let checkInErrorMessage: string | undefined;
@@ -277,7 +310,8 @@ export default function DashboardPage() {
                             <div>
                                 <h2 className="text-lg font-semibold">Connect your wallet</h2>
                                 <p className="mt-2 text-sm text-brand-subtle">
-                                    Connect a Sei EVM wallet to start tracking your streak and unlocking rewards.
+                                    Connect a Sei EVM wallet to start tracking your streak and unlocking
+                                    rewards.
                                 </p>
 
                                 <ol className="mt-4 space-y-1.5 text-xs text-brand-subtle">
@@ -323,7 +357,7 @@ export default function DashboardPage() {
                                 <div className="mt-3 space-y-2 text-sm">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="text-brand-subtle">Address:</span>
-                                        <code className="rounded bg-black/30 px-2 py-1 text-xs">
+                                        <code className="rounded bg-black/30 px-2.5 py-1 text-[13px]">
                                             {shortAddress}
                                         </code>
                                     </div>
@@ -339,7 +373,8 @@ export default function DashboardPage() {
                                     </div>
 
                                     <p className="mt-1 text-xs text-brand-subtle">
-                                        This address is used to track your streaks and send rewards once they go live.
+                                        This address is used to track your streaks and send rewards once
+                                        they go live.
                                     </p>
 
                                     {wrongNetwork && (
@@ -350,7 +385,6 @@ export default function DashboardPage() {
                                     )}
                                 </div>
                             </div>
-
 
                             {/* Streak status card */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-5">
@@ -374,8 +408,8 @@ export default function DashboardPage() {
                                         Missing a day will reset your current streak back to 1.
                                     </p>
                                     <p className="mt-1 text-[11px] text-brand-subtle">
-                                        Streak rule: your FROG balance must be higher than it was at
-                                        your last successful check-in.
+                                        Streak rule: your FROG balance must be higher than it was at your
+                                        last successful check-in.
                                     </p>
                                     {isUserError && !wrongNetwork && (
                                         <p className="mt-2 text-xs text-red-400">
@@ -388,7 +422,7 @@ export default function DashboardPage() {
                         </section>
 
                         {/* Streak overview metrics */}
-                        <section className="mt-6 grid gap-4 md:grid-cols-3">
+                        <section className="mt-8 grid gap-4 md:grid-cols-3">
                             {/* Current streak */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4">
                                 <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-brand-subtle">
@@ -402,7 +436,9 @@ export default function DashboardPage() {
                                 <div className="mt-2 text-3xl font-bold">
                                     {isLoadingUser || wrongNetwork ? "…" : currentStreak}
                                     {!isLoadingUser && !wrongNetwork && currentStreak > 0 && (
-                                        <span className="ml-1 text-base font-semibold text-brand-subtle">d</span>
+                                        <span className="ml-1 text-base font-semibold text-brand-subtle">
+                                            d
+                                        </span>
                                     )}
                                 </div>
                                 <div className="mt-1 text-xs text-brand-subtle">
@@ -426,7 +462,9 @@ export default function DashboardPage() {
                                 <div className="mt-2 text-3xl font-bold">
                                     {isLoadingUser || wrongNetwork ? "…" : bestStreak}
                                     {!isLoadingUser && !wrongNetwork && bestStreak > 0 && (
-                                        <span className="ml-1 text-base font-semibold text-brand-subtle">d</span>
+                                        <span className="ml-1 text-base font-semibold text-brand-subtle">
+                                            d
+                                        </span>
                                     )}
                                 </div>
                                 <div className="mt-1 text-xs text-brand-subtle">
@@ -439,15 +477,23 @@ export default function DashboardPage() {
                                 <div className="text-[11px] uppercase tracking-wide text-brand-subtle">
                                     Total check-ins
                                 </div>
-                                <div className="mt-2 text-3xl font-bold">
-                                    {isLoadingUser || wrongNetwork ? "…" : totalCheckIns}
+                                <div className="mt-2 text-3xl font-bold flex items-baseline gap-1">
+                                    <span>
+                                        {isLoadingUser || wrongNetwork ? "…" : totalCheckIns}
+                                    </span>
+                                    {!isLoadingUser &&
+                                        !wrongNetwork &&
+                                        totalCheckIns > 0 && (
+                                            <span className="text-base font-semibold text-brand-subtle">
+                                                checks
+                                            </span>
+                                        )}
                                 </div>
                                 <div className="mt-1 text-xs text-brand-subtle">
                                     Successful daily check-ins recorded on-chain.
                                 </div>
                             </div>
                         </section>
-
 
                         {/* Actions: check-in + claim */}
                         <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/80 p-6 space-y-5">
@@ -460,30 +506,33 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-sm text-brand-subtle">
-                                        Check in once per 24hr to extend your streak, DCA is king!
+                                        Check in once per 24hr to extend your streak, DCA to freedom!
                                     </p>
                                     <p className="mt-1 text-[11px] text-brand-subtle">
                                         Daily reset: <span className="font-mono">00:00 UTC</span>.
                                     </p>
-
-                                    {checkInErrorMessage && !wrongNetwork && (
-                                        <p className="mt-2 text-xs text-red-400">
-                                            {checkInErrorMessage}
-                                        </p>
-                                    )}
                                 </div>
 
                                 <button
                                     type="button"
                                     onClick={handleCheckIn}
                                     disabled={checkInDisabled}
-                                    className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-brand-primary text-[#081318] hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50 disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                                    className={`rounded-xl px-5 py-2.5 text-sm font-semibold
+                                        transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50
+                                        disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed
+                                        ${checkInColor} `}
                                 >
                                     {checkInLabel}
                                 </button>
                             </div>
 
-                            <div className="border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            {checkInErrorMessage && !wrongNetwork && (
+                                <p className="mt-3 text-xs text-red-400 md:text-right">
+                                    {checkInErrorMessage}
+                                </p>
+                            )}
+
+                            <div className="mt-4 border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-sm font-semibold">Rewards</h3>
@@ -492,7 +541,9 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-xs text-brand-subtle">
-                                        Once streak milestones are live, you&apos;ll be able to claim on-chain rewards here based on your best streak and total check-ins.
+                                        Once streak milestones are live, you&apos;ll be able to claim
+                                        on-chain rewards here based on your best streak and total
+                                        check-ins.
                                     </p>
                                 </div>
 
@@ -507,7 +558,7 @@ export default function DashboardPage() {
                         </section>
 
                         {/* Market snapshot */}
-                        <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/60 p-6">
+                        <section className="mt-10 rounded-2xl border border-white/10 bg-brand-card/60 p-6">
                             <h2 className="text-lg font-semibold mb-2">Market snapshot</h2>
                             <p className="text-xs text-brand-subtle mb-3">
                                 Quick view of $FROG stats while you manage your streaks.
