@@ -243,7 +243,7 @@ export default function FroggyLanding() {
     ] as const;
 
     //Visible pages
-    const PAGE = 3;
+    const PAGE = 6;
     const [visibleCount, setVisibleCount] = useState(PAGE);
     const visibleItems = galleryItems.slice(0, visibleCount);
 
