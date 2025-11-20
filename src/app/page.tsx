@@ -581,18 +581,17 @@ export default function FroggyLanding() {
                             <Link
                                 href={dashboardEnabled ? "/dashboard" : "#"}
                                 onClick={(e) => {
-                                    if (!dashboardEnabled) e.preventDefault(); // no nav if not ready
+                                    if (!dashboardEnabled) e.preventDefault();
                                 }}
                                 className={`rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150
-                                    ${dashboardEnabled ? "hover:scale-[1.02] cursor-pointer" : "cursor-not-allowed"}`}
+                                ${dashboardEnabled ? "hover:scale-[1.02] cursor-pointer" : "cursor-not-allowed"}`}
                                 style={{
-                                    background: dashboardEnabled ? brand.secondary : brand.secondary, // green when active, blue when disabled
-                                    opacity: dashboardEnabled ? 1 : 0.5,
+                                    background: dashboardEnabled ? brand.secondary : "#e86a6a",
+                                    opacity: dashboardEnabled ? 1 : 0.6,
                                 }}
                             >
                                 Dashboard
                             </Link>
-
                         </div>
 
 
@@ -603,7 +602,7 @@ export default function FroggyLanding() {
 
                     {/* Mascot card */}
                     <div className="relative">
-                        <div className="relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/25 shadow-xl overflow-hidden">
+                        <div className="froggy-breathe relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/25 shadow-xl overflow-hidden">
                             <Image
                                 src={froggyBase}
                                 alt="Froggy base mascot"
@@ -650,7 +649,7 @@ export default function FroggyLanding() {
                         },
                         {
                             k: "Holders",
-                            v: "1,288 Holders",
+                            v: "1,297 Holders",
                             d: "View holder data on Sei Explorer.",
                             link: "https://seitrace.com/token/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1&tab=holders",
                         },
@@ -714,9 +713,9 @@ export default function FroggyLanding() {
 
                 <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1fr] items-start">
                     {/* Left: chart */}
-                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-brand-card h-[min(70vh,680px)] min-h-[520px] flex flex-col">
+                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-brand-card h-[clamp(540px,70vh,680px)] min-h-[520px] flex flex-col">
                         <iframe
-                            title="FROG/SEI price chart on GeckoTerminal"
+                            title="FROG/SEI price chart on DexScreener"
                             src={URL.dexEmbed}
                             className="w-full flex-1"
                             loading="lazy"
@@ -742,7 +741,7 @@ export default function FroggyLanding() {
                     </div>
 
                     {/* Right: quick action + stats */}
-                    <div className="rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col h-auto md:h-[min(70vh,680px)]">
+                    <div className="rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col h-auto md:h-[clamp(540px,70vh,680px)]">
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className="text-sm text-brand-subtle">Quick Action</div>
@@ -760,11 +759,7 @@ export default function FroggyLanding() {
                                 <div className="mt-1 grid gap-2">
                                     <select
                                         id="from-asset"
-                                        className="h-12 w-full rounded-xl bg-white/5 text-left px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 text-brand-text"
-                                        style={{
-                                            color: "#E9F1FF",        // visible text color
-                                            backgroundColor: "#121a2e", // matches brand.card
-                                        }}
+                                        className="h-12 w-full rounded-xl bg-brand-card text-left px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 text-brand-text"
                                         value={fromChoice.label}
                                         onChange={(e) => {
                                             const pick = FROM_PRESETS.find(p => p.label === e.target.value)!;
@@ -1042,9 +1037,8 @@ export default function FroggyLanding() {
                     ].map(({ t, d, done }, i) => (
                         <li
                             key={t}
-                            className="rounded-2xl p-5 border border-white/10 hover:border-brand-primary/40 transition-all duration-200"
+                            className="rounded-2xl p-5 border border-white/10 bg-brand-card/60 hover:border-brand-primary/40 transition-all duration-200"
                             style={{
-                                background: "var(--color-brand-card)",
                                 opacity: done ? 0.9 : 1,
                             }}
                         >
