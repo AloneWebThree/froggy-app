@@ -53,7 +53,7 @@ const ADDR = {
 };
 
 const URL = {
-    dexEmbed: `https://dexscreener.com/seiv2/${ADDR.pair}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTimeframesToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=1D`,
+    dexEmbed: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=1d`,
     dexFull: `https://dexscreener.com/seiv2/${ADDR.pair}`,
 
     pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
@@ -577,7 +577,7 @@ export default function FroggyLanding() {
                                 Trade $FROG
                             </a>
 
-                            {/* Holder Dashboard — blue + disabled when not connected, green + active when connected */}
+                            {/* Holder Dashboard — red when locked, blue when wallet is connected */}
                             <Link
                                 href={dashboardEnabled ? "/dashboard" : "#"}
                                 onClick={(e) => {
@@ -1046,7 +1046,7 @@ export default function FroggyLanding() {
                                 <span
                                     className="inline-flex h-6 w-6 items-center justify-center rounded-full font-semibold"
                                     style={{
-                                        background: "var(--color-brand-primary)",
+                                        background: brand.primary,
                                         color: "#081318",
                                     }}
                                 >
@@ -1129,12 +1129,10 @@ export default function FroggyLanding() {
                                 X / Twitter
                             </a>
                             <a
-                                href="https://discord.gg/" // replace with your real link
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href="#"
                                 className="transition-colors hover:text-brand-primary"
                             >
-                                Discord
+                                Discord (coming soon)
                             </a>
                             <a
                                 href="https://t.me/frogonsei" // replace with your real link
