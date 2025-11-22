@@ -11,11 +11,14 @@ import { WalletButton } from "../providers";
 import LiveStats from "@/components/LiveStats";
 
 // ===== CONSTANTS =====
-const SEI_EVM_CHAIN_ID = 1329; // Sei EVM mainnet chain id
+const SEI_EVM_CHAIN_ID = 1329 as const; // Sei EVM mainnet chain id
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 // ===== CONTRACT ADDRESSES =====
-const FROGGY_STREAK_ADDRESS = "0xB5668295f6A7174ca3813fFf59f822B595Cf65fE" as const;
-const FROG_TOKEN_ADDRESS = "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9" as const; // FROG token on Sei EVM
+const FROGGY_STREAK_ADDRESS =
+    "0xB5668295f6A7174ca3813fFf59f822B595Cf65fE" as const;
+const FROG_TOKEN_ADDRESS =
+    "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9" as const; // FROG token on Sei EVM
 
 // ===== ABIs =====
 const FROGGY_STREAK_ABI = [
@@ -61,8 +64,52 @@ const ERC20_ABI = [
 // uint32 -> number, uint64/uint256 -> bigint
 type UserStateTuple = readonly [number, number, number, bigint, bigint];
 
+function normalizeUserState(userState: UserStateTuple | undefined) {
+    if (!userState) {
+        return {
+            currentStreak: 0,
+            bestStreak: 0,
+            totalCheckIns: 0,
+            lastCheckInDay: null as number | null,
+            lastRecordedBalance: null as bigint | null,
+        };
+    }
+
+    return {
+        currentStreak: userState[0],
+        bestStreak: userState[1],
+        totalCheckIns: userState[2],
+        lastCheckInDay: Number(userState[3]),
+        lastRecordedBalance: userState[4],
+    };
+}
+
+function mapCheckInErrorMessage(err: unknown): string | undefined {
+    if (!err) return;
+
+    const e = err as { shortMessage?: string; message?: string };
+    const raw = e.shortMessage ?? e.message ?? "";
+    if (!raw) return;
+
+    if (raw.includes("Balance has not increased")) {
+        return "You need to hold more FROG than at your last successful check-in before you can extend your streak.";
+    }
+    if (raw.includes("Insufficient FROG balance")) {
+        return "Your FROG balance is below the minimum required to participate in streaks.";
+    }
+    if (raw.includes("Already checked in today")) {
+        return "You have already checked in for the current UTC day. Come back after the daily reset.";
+    }
+
+    return raw;
+}
+
 export default function DashboardPage() {
     const { address, isConnected, chainId } = useAccount();
+
+    const isOnSeiEvm = chainId === SEI_EVM_CHAIN_ID;
+    const wrongNetwork =
+        chainId !== undefined && chainId !== null && !isOnSeiEvm;
 
     const shortAddress = useMemo(() => {
         if (!address) return "";
@@ -70,14 +117,9 @@ export default function DashboardPage() {
         return `${address.slice(0, 6)}…${address.slice(-4)}`;
     }, [address]);
 
-    const wrongNetwork =
-        chainId !== undefined &&
-        chainId !== null &&
-        chainId !== SEI_EVM_CHAIN_ID;
-
     // ===== READ: getUserState (streak contract) =====
     const {
-        data: userState,
+        data: userStateRaw,
         isLoading: isLoadingUser,
         isError: isUserError,
         refetch: refetchUserState,
@@ -85,26 +127,19 @@ export default function DashboardPage() {
         address: FROGGY_STREAK_ADDRESS,
         abi: FROGGY_STREAK_ABI,
         functionName: "getUserState",
-        args: [address ?? "0x0000000000000000000000000000000000000000"],
+        args: [address ?? ZERO_ADDRESS],
         query: {
             enabled: !!address && !wrongNetwork,
         },
     });
 
-    let currentStreak = 0;
-    let bestStreak = 0;
-    let totalCheckIns = 0;
-    let lastCheckInDay: number | null = null;
-    let lastRecordedBalance: bigint | null = null;
-
-    if (userState) {
-        const u = userState as UserStateTuple;
-        currentStreak = u[0];
-        bestStreak = u[1];
-        totalCheckIns = u[2];
-        lastCheckInDay = Number(u[3]);
-        lastRecordedBalance = u[4];
-    }
+    const {
+        currentStreak,
+        bestStreak,
+        totalCheckIns,
+        lastCheckInDay,
+        lastRecordedBalance,
+    } = normalizeUserState(userStateRaw as UserStateTuple | undefined);
 
     // Track today's UTC day index once on the client
     const [currentUtcDay, setCurrentUtcDay] = useState<number | null>(null);
@@ -113,7 +148,7 @@ export default function DashboardPage() {
         const nowSeconds = Date.now() / 1000;
         const dayIndex = Math.floor(nowSeconds / 86400);
 
-        // wrap state update in a microtask
+        // wrap state update in a microtask for safer hydration
         Promise.resolve().then(() => setCurrentUtcDay(dayIndex));
     }, []);
 
@@ -123,32 +158,43 @@ export default function DashboardPage() {
         return lastCheckInDay === currentUtcDay;
     }, [lastCheckInDay, currentUtcDay]);
 
-    const streakStatus =
-        currentStreak === 0
-            ? {
-                label: "Inactive",
-                tone: "bg-red-500/15 text-red-300 border-red-500/30",
-            }
-            : {
-                label: "Active",
-                tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/40",
-            };
+    const streakStatus = useMemo(
+        () =>
+            currentStreak === 0
+                ? {
+                    label: "Inactive",
+                    tone: "bg-red-500/15 text-red-300 border-red-500/30",
+                }
+                : {
+                    label: "Active",
+                    tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/40",
+                },
+        [currentStreak],
+    );
 
     // ===== READ: FROG token balance =====
-    const { data: frogBalanceRaw } = useReadContract({
+    const {
+        data: frogBalanceRaw,
+        isLoading: isLoadingBalance,
+    } = useReadContract({
         address: FROG_TOKEN_ADDRESS,
         abi: ERC20_ABI,
         functionName: "balanceOf",
-        args: [address ?? "0x0000000000000000000000000000000000000000"],
+        args: [address ?? ZERO_ADDRESS],
         query: { enabled: !!address && !wrongNetwork },
     });
 
-    const { data: frogDecimalsRaw } = useReadContract({
+    const {
+        data: frogDecimalsRaw,
+        isLoading: isLoadingDecimals,
+    } = useReadContract({
         address: FROG_TOKEN_ADDRESS,
         abi: ERC20_ABI,
         functionName: "decimals",
         args: [],
     });
+
+    const isBalanceLoading = isLoadingBalance || isLoadingDecimals;
 
     const frogBalance = useMemo(() => {
         if (!frogBalanceRaw || frogDecimalsRaw === undefined) return 0;
@@ -156,16 +202,15 @@ export default function DashboardPage() {
             typeof frogDecimalsRaw === "number"
                 ? frogDecimalsRaw
                 : Number(frogDecimalsRaw);
-        return Number(frogBalanceRaw) / 10 ** decimals;
+        return Number(frogBalanceRaw as bigint) / 10 ** decimals;
     }, [frogBalanceRaw, frogDecimalsRaw]);
 
     // Check if current raw balance > lastRecordedBalance (both in raw units)
-    const hasIncreasedBalance =
-        frogBalanceRaw !== undefined &&
-            frogBalanceRaw !== null &&
-            lastRecordedBalance !== null
-            ? (frogBalanceRaw as bigint) > lastRecordedBalance
-            : true; // if no history loaded yet, let contract enforce
+    const hasIncreasedBalance: boolean = useMemo(() => {
+        if (frogBalanceRaw === undefined || frogBalanceRaw === null) return true;
+        if (lastRecordedBalance === null) return true; // let contract enforce for first-time users
+        return (frogBalanceRaw as bigint) > lastRecordedBalance;
+    }, [frogBalanceRaw, lastRecordedBalance]);
 
     // ===== WRITE: checkIn() =====
     const {
@@ -202,70 +247,48 @@ export default function DashboardPage() {
     const checkInDisabled =
         !isConnected ||
         wrongNetwork ||
+        isBalanceLoading ||
         isCheckInPending ||
         isConfirmingTx ||
         hasCheckedInToday ||
         !hasIncreasedBalance;
 
-    let checkInLabel: string;
-    if (!isConnected) {
-        checkInLabel = "Connect wallet to check in";
-    } else if (wrongNetwork) {
-        checkInLabel = "Switch to Sei EVM";
-    } else if (isCheckInPending || isConfirmingTx) {
-        checkInLabel = "Checking in...";
-    } else if (hasCheckedInToday) {
-        checkInLabel = "Checked in ✓";
-    } else if (!hasIncreasedBalance) {
-        checkInLabel = "Increase your FROG balance to check in";
-    } else {
-        checkInLabel = "Check in for today";
-    }
+    const checkInLabel: string = (() => {
+        if (!isConnected) return "Connect wallet to check in";
+        if (wrongNetwork) return "Switch to Sei EVM";
+        if (isBalanceLoading) return "Loading balance…";
+        if (isCheckInPending || isConfirmingTx) return "Checking in...";
+        if (hasCheckedInToday) return "Checked in ✓";
+        if (!hasIncreasedBalance) return "Increase your FROG balance to check in";
+        return "Check in for today";
+    })();
 
-    let checkInColor = "";
-
-    if (!isConnected) {
-        checkInColor = "bg-[#3c3c3c] text-white/60 border border-white/10";
-
-    } else if (wrongNetwork) {
-        checkInColor = "bg-yellow-500 text-black hover:bg-yellow-400";
-
-    } else if (isCheckInPending || isConfirmingTx) {
-        checkInColor = "bg-brand-primary/70 text-black animate-pulse";
-
-    } else if (hasCheckedInToday) {
-        // Success / completed — FROGGY GREEN
-        checkInColor = "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
-
-    } else if (!hasIncreasedBalance) {
-        // Froggy blush
-        checkInColor = "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
-
-    } else {
-        // Ready
-        checkInColor = "bg-brand-primary text-[#081318] hover:scale-[1.02]";
-    }
-
-
-    // User-friendly error messages
-    let checkInErrorMessage: string | undefined;
-    if (checkInError) {
-        const e = checkInError as { shortMessage?: string; message?: string };
-        let raw = e.shortMessage ?? e.message ?? "";
-
-        if (raw.includes("Balance has not increased")) {
-            raw =
-                "You need to hold more FROG than at your last successful check-in before you can extend your streak.";
-        } else if (raw.includes("Insufficient FROG balance")) {
-            raw =
-                "Your FROG balance is below the minimum required to participate in streaks.";
-        } else if (raw.includes("Already checked in today")) {
-            raw =
-                "You have already checked in for the current UTC day. Come back after the daily reset.";
+    const checkInColor: string = (() => {
+        if (!isConnected) {
+            return "bg-[#3c3c3c] text-white/60 border border-white/10";
         }
+        if (wrongNetwork) {
+            return "bg-yellow-500 text-black hover:bg-yellow-400";
+        }
+        if (isBalanceLoading) {
+            return "bg-brand-primary/40 text-black/60 animate-pulse";
+        }
+        if (isCheckInPending || isConfirmingTx) {
+            return "bg-brand-primary/70 text-black animate-pulse";
+        }
+        if (hasCheckedInToday) {
+            // Success / completed — FROGGY GREEN
+            return "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
+        }
+        if (!hasIncreasedBalance) {
+            // Froggy blush
+            return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
+        }
+        // Ready
+        return "bg-brand-primary text-[#081318] hover:scale-[1.02]";
+    })();
 
-        checkInErrorMessage = raw;
-    }
+    const checkInErrorMessage = mapCheckInErrorMessage(checkInError);
 
     return (
         <div className="min-h-screen w-full bg-brand-bg text-brand-text">
@@ -273,21 +296,20 @@ export default function DashboardPage() {
                 {/* Header row */}
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-                                    Froggy Dashboard
-                                </h1>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                                Froggy Dashboard
+                            </h1>
 
-                                <a
-                                    href="/"
-                                    className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-brand-subtle border border-white/10 hover:bg-white/10 transition-colors"
-                                >
-                                    ← Back to Landing
-                                </a>
-                            </div>
+                            <a
+                                href="/"
+                                className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3.5 py-1.5 text-xs md:text-sm font-medium text-brand-subtle border border-white/15 hover:bg-white/10 hover:border-white/30 transition-colors"
+                            >
+                                <span className="text-base leading-none">←</span>
+                                <span>Back to landing</span>
+                            </a>
                         </div>
-                        <p className="mt-1 text-sm text-brand-subtle">
+                        <p className="mt-2 text-sm text-brand-subtle">
                             Lock in your daily $FROG streak and earn on-chain rewards over time.
                         </p>
                     </div>
@@ -346,7 +368,7 @@ export default function DashboardPage() {
                                     </h2>
                                     <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-brand-subtle border border-white/10">
                                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                                        {chainId === SEI_EVM_CHAIN_ID
+                                        {isOnSeiEvm
                                             ? "Sei EVM mainnet"
                                             : chainId
                                                 ? `Chain ID: ${chainId}`
@@ -424,7 +446,7 @@ export default function DashboardPage() {
                         {/* Streak overview metrics */}
                         <section className="mt-8 grid gap-4 md:grid-cols-3">
                             {/* Current streak */}
-                            <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4">
+                            <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                                 <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-brand-subtle">
                                     <span>Current streak</span>
                                     {currentStreak > 0 && !wrongNetwork && !isLoadingUser && (
@@ -447,7 +469,7 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Best streak */}
-                            <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4">
+                            <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                                 <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-brand-subtle">
                                     <span>Best streak</span>
                                     {!isLoadingUser &&
@@ -473,7 +495,7 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Total check-ins */}
-                            <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4">
+                            <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                                 <div className="text-[11px] uppercase tracking-wide text-brand-subtle">
                                     Total check-ins
                                 </div>
@@ -496,7 +518,7 @@ export default function DashboardPage() {
                         </section>
 
                         {/* Actions: check-in + claim */}
-                        <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/80 p-6 space-y-5">
+                        <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/80 p-6 space-y-5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -508,9 +530,6 @@ export default function DashboardPage() {
                                     <p className="mt-1 text-sm text-brand-subtle">
                                         Check in once per 24hr to extend your streak, DCA to freedom!
                                     </p>
-                                    <p className="mt-1 text-[11px] text-brand-subtle">
-                                        Daily reset: <span className="font-mono">00:00 UTC</span>.
-                                    </p>
                                 </div>
 
                                 <button
@@ -520,17 +539,18 @@ export default function DashboardPage() {
                                     className={`rounded-xl px-5 py-2.5 text-sm font-semibold
                                         transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50
                                         disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed
-                                        ${checkInColor} `}
+                                        hover:translate-y-[-1px] active:translate-y-[0px]
+                                        ${checkInColor}`}
                                 >
                                     {checkInLabel}
                                 </button>
-                            </div>
 
-                            {checkInErrorMessage && !wrongNetwork && (
-                                <p className="mt-3 text-xs text-red-400 md:text-right">
-                                    {checkInErrorMessage}
-                                </p>
-                            )}
+                                {checkInErrorMessage && !wrongNetwork && (
+                                    <p className="text-xs text-red-400 md:text-right max-w-xs">
+                                        {checkInErrorMessage}
+                                    </p>
+                                )}
+                            </div>
 
                             <div className="mt-4 border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
@@ -558,12 +578,22 @@ export default function DashboardPage() {
                         </section>
 
                         {/* Market snapshot */}
-                        <section className="mt-10 rounded-2xl border border-white/10 bg-brand-card/60 p-6">
-                            <h2 className="text-lg font-semibold mb-2">Market snapshot</h2>
-                            <p className="text-xs text-brand-subtle mb-3">
-                                Quick view of $FROG stats while you manage your streaks.
-                            </p>
-                            <LiveStats />
+                        <section className="mt-10 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                                <div>
+                                    <h2 className="text-lg font-semibold">Market snapshot</h2>
+                                    <p className="text-xs text-brand-subtle">
+                                        Quick view of $FROG stats while you manage your streaks.
+                                    </p>
+                                </div>
+                                <span className="hidden sm:inline-flex items-center rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-medium text-brand-subtle border border-white/10">
+                                    Live on-chain data
+                                </span>
+                            </div>
+
+                            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                                <LiveStats />
+                            </div>
                         </section>
                     </>
                 )}
