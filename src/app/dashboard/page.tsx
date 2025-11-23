@@ -582,7 +582,6 @@ export default function DashboardPage() {
                             <div className="mt-4 border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[13px] opacity-70">🎁</span>
                                         <h3 className="text-sm font-semibold">Rewards</h3>
                                         <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-brand-subtle border border-white/10">
                                             Coming soon
