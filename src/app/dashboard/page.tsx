@@ -158,6 +158,22 @@ export default function DashboardPage() {
         return lastCheckInDay === currentUtcDay;
     }, [lastCheckInDay, currentUtcDay]);
 
+    const lastCheckInSummary = useMemo(() => {
+        if (isLoadingUser || wrongNetwork) return "";
+        if (lastCheckInDay === null || currentUtcDay === null || totalCheckIns === 0) {
+            return "No check-ins yet.";
+        }
+
+        const diff = currentUtcDay - lastCheckInDay;
+
+        if (diff === 0) return "Last check-in: today.";
+        if (diff === 1) return "Last check-in: yesterday.";
+        if (diff > 1) return `Last check-in: ${diff} days ago.`;
+
+        // Fallback for any weirdness
+        return "Last check-in: recently.";
+    }, [isLoadingUser, wrongNetwork, lastCheckInDay, currentUtcDay, totalCheckIns]);
+
     const streakStatus = useMemo(
         () =>
             currentStreak === 0
@@ -288,11 +304,9 @@ export default function DashboardPage() {
         return "bg-brand-primary text-[#081318] hover:scale-[1.02]";
     })();
 
-    const checkInErrorMessage = mapCheckInErrorMessage(checkInError);
-
     return (
         <div className="min-h-screen w-full bg-brand-bg text-brand-text">
-            <main className="mx-auto max-w-5xl px-4 py-10">
+            <main className="mx-auto max-w-5xl px-4 py-8">
                 {/* Header row */}
                 <div className="flex items-center justify-between gap-4">
                     <div>
@@ -327,7 +341,7 @@ export default function DashboardPage() {
 
                 {/* If not connected, guard the rest of the page */}
                 {!isConnected && (
-                    <section className="mt-10 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
+                    <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <h2 className="text-lg font-semibold">Connect your wallet</h2>
@@ -379,7 +393,7 @@ export default function DashboardPage() {
                                 <div className="mt-3 space-y-2 text-sm">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="text-brand-subtle">Address:</span>
-                                        <code className="rounded bg-black/30 px-2.5 py-1 text-[13px]">
+                                        <code className="rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[13px]">
                                             {shortAddress}
                                         </code>
                                     </div>
@@ -388,7 +402,8 @@ export default function DashboardPage() {
                                         <span className="text-brand-subtle">Balance:</span>
                                         <span className="text-sm font-mono">
                                             {frogBalance.toLocaleString(undefined, {
-                                                maximumFractionDigits: 2,
+                                                maximumFractionDigits: 4,
+                                                minimumFractionDigits: 0,
                                             })}{" "}
                                             FROG
                                         </span>
@@ -448,13 +463,17 @@ export default function DashboardPage() {
                             {/* Current streak */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                                 <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-brand-subtle">
-                                    <span>Current streak</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[13px] opacity-70">🔥</span>
+                                        <span>Current streak</span>
+                                    </div>
                                     {currentStreak > 0 && !wrongNetwork && !isLoadingUser && (
                                         <span className="rounded-full bg-brand-secondary/5 px-2 py-0.5 text-[10px] font-medium text-brand-secondary">
                                             Live
                                         </span>
                                     )}
                                 </div>
+
                                 <div className="mt-2 text-3xl font-bold">
                                     {isLoadingUser || wrongNetwork ? "…" : currentStreak}
                                     {!isLoadingUser && !wrongNetwork && currentStreak > 0 && (
@@ -463,15 +482,25 @@ export default function DashboardPage() {
                                         </span>
                                     )}
                                 </div>
+
                                 <div className="mt-1 text-xs text-brand-subtle">
                                     Consecutive days you&apos;ve checked in.
                                 </div>
+
+                                {!isLoadingUser && !wrongNetwork && (
+                                    <div className="mt-0.5 text-[11px] text-brand-subtle/80">
+                                        {lastCheckInSummary}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Best streak */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                                 <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-brand-subtle">
-                                    <span>Best streak</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[13px] opacity-70">🏆</span>
+                                        <span>Best streak</span>
+                                    </div>
                                     {!isLoadingUser &&
                                         !wrongNetwork &&
                                         currentStreak > 0 &&
@@ -496,8 +525,9 @@ export default function DashboardPage() {
 
                             {/* Total check-ins */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
-                                <div className="text-[11px] uppercase tracking-wide text-brand-subtle">
-                                    Total check-ins
+                                <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-brand-subtle">
+                                    <span className="text-[13px] opacity-70">✅</span>
+                                    <span>Total check-ins</span>
                                 </div>
                                 <div className="mt-2 text-3xl font-bold flex items-baseline gap-1">
                                     <span>
@@ -528,33 +558,31 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-sm text-brand-subtle">
-                                        Check in once per 24hr to extend your streak, DCA to freedom!
+                                        Check in once per day to extend your streak.
                                     </p>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={handleCheckIn}
-                                    disabled={checkInDisabled}
-                                    className={`rounded-xl px-5 py-2.5 text-sm font-semibold
+                                <div className="flex flex-col items-stretch md:items-end gap-1 max-w-xs w-full md:w-auto">
+                                    <button
+                                        type="button"
+                                        onClick={handleCheckIn}
+                                        disabled={checkInDisabled}
+                                        className={`rounded-xl px-5 py-2.5 text-sm font-semibold
                                         transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50
                                         disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed
                                         hover:translate-y-[-1px] active:translate-y-[0px]
                                         ${checkInColor}`}
-                                >
-                                    {checkInLabel}
-                                </button>
-
-                                {checkInErrorMessage && !wrongNetwork && (
-                                    <p className="text-xs text-red-400 md:text-right max-w-xs">
-                                        {checkInErrorMessage}
-                                    </p>
-                                )}
+                                    >
+                                        {checkInLabel}
+                                    </button>
+                                </div>
                             </div>
+
 
                             <div className="mt-4 border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
+                                        <span className="text-[13px] opacity-70">🎁</span>
                                         <h3 className="text-sm font-semibold">Rewards</h3>
                                         <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-brand-subtle border border-white/10">
                                             Coming soon
@@ -570,7 +598,7 @@ export default function DashboardPage() {
                                 <button
                                     type="button"
                                     disabled
-                                    className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-white/5 text-brand-text border border-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-white/5 text-brand-text border border-white/15 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     Claim reward
                                 </button>
@@ -578,7 +606,7 @@ export default function DashboardPage() {
                         </section>
 
                         {/* Market snapshot */}
-                        <section className="mt-10 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
+                        <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
                             <div className="flex items-center justify-between gap-3 mb-2">
                                 <div>
                                     <h2 className="text-lg font-semibold">Market snapshot</h2>
