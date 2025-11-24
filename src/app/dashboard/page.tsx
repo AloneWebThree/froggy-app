@@ -84,26 +84,6 @@ function normalizeUserState(userState: UserStateTuple | undefined) {
     };
 }
 
-function mapCheckInErrorMessage(err: unknown): string | undefined {
-    if (!err) return;
-
-    const e = err as { shortMessage?: string; message?: string };
-    const raw = e.shortMessage ?? e.message ?? "";
-    if (!raw) return;
-
-    if (raw.includes("Balance has not increased")) {
-        return "You need to hold more FROG than at your last successful check-in before you can extend your streak.";
-    }
-    if (raw.includes("Insufficient FROG balance")) {
-        return "Your FROG balance is below the minimum required to participate in streaks.";
-    }
-    if (raw.includes("Already checked in today")) {
-        return "You have already checked in for the current UTC day. Come back after the daily reset.";
-    }
-
-    return raw;
-}
-
 export default function DashboardPage() {
     const { address, isConnected, chainId } = useAccount();
 
@@ -173,6 +153,60 @@ export default function DashboardPage() {
         // Fallback for any weirdness
         return "Last check-in: recently.";
     }, [isLoadingUser, wrongNetwork, lastCheckInDay, currentUtcDay, totalCheckIns]);
+
+    const historyWindow = useMemo(
+        () => {
+            // Need real data + a known "today"
+            if (
+                currentUtcDay === null ||
+                lastCheckInDay === null ||
+                totalCheckIns === 0
+            ) {
+                return [] as {
+                    dayIndex: number;
+                    label: string;
+                    status: "checked" | "missed";
+                }[];
+            }
+
+            // Streak days run from streakStartDay → lastCheckInDay (inclusive)
+            const streakStartDay =
+                currentStreak > 0 ? lastCheckInDay - (currentStreak - 1) : null;
+
+            const days: {
+                dayIndex: number;
+                label: string;
+                status: "checked" | "missed";
+            }[] = [];
+
+            // Build a 7-day window ending today (oldest → newest)
+            for (let offset = 6; offset >= 0; offset--) {
+                const dayIndex = currentUtcDay - offset;
+                const diff = currentUtcDay - dayIndex;
+
+                let label: string;
+                if (diff === 0) label = "Today";
+                else if (diff === 1) label = "Yesterday";
+                else label = `${diff}d ago`;
+
+                let status: "checked" | "missed" = "missed";
+
+                if (
+                    streakStartDay !== null &&
+                    dayIndex >= streakStartDay &&
+                    dayIndex <= lastCheckInDay
+                ) {
+                    status = "checked";
+                }
+
+                days.push({ dayIndex, label, status });
+            }
+
+            return days;
+        },
+        [currentUtcDay, lastCheckInDay, currentStreak, totalCheckIns],
+    );
+
 
     const streakStatus = useMemo(
         () =>
@@ -577,6 +611,92 @@ export default function DashboardPage() {
                                     </button>
                                 </div>
                             </div>
+                            {/* Streak history (last 7 days preview) */}
+                            <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h2 className="text-lg font-semibold">Streak history</h2>
+                                        <p className="mt-1 text-xs text-brand-subtle">
+                                            Snapshot of your last 7 days based on on-chain check-ins.
+                                        </p>
+                                    </div>
+
+                                    <div className="hidden sm:flex items-center gap-3 text-[11px] text-brand-subtle">
+                                        <span className="inline-flex items-center gap-1">
+                                            <span className="h-2 w-2 rounded-full bg-[#6EB819]" />
+                                            <span>Checked in</span>
+                                        </span>
+                                        <span className="inline-flex items-center gap-1">
+                                            <span className="h-2 w-2 rounded-full bg-white/15" />
+                                            <span>Missed / no activity</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {historyWindow.length === 0 || wrongNetwork || isLoadingUser ? (
+                                    <p className="mt-4 text-xs text-brand-subtle">
+                                        Once you start checking in on Sei EVM, your recent 7-day pattern
+                                        will show up here.
+                                    </p>
+                                ) : (
+                                    <div className="mt-4 flex flex-col gap-3">
+                                        <div className="flex flex-wrap gap-2.5">
+                                                {historyWindow.map((day) => {
+                                                    const isToday =
+                                                        currentUtcDay !== null && day.dayIndex === currentUtcDay;
+
+                                                    return (
+                                                        <div
+                                                            key={day.dayIndex}
+                                                            className={[
+                                                                "flex flex-col items-center justify-center",
+                                                                "rounded-xl border px-3 py-2.5 min-w-[72px] text-center",
+                                                                // Base styling for all days
+                                                                "border-white/5 bg-transparent",
+                                                                // VERY subtle highlight for Today
+                                                                isToday ? "border-white/15 bg-white/[0.03]" : "",
+                                                            ].join(" ")}
+                                                        >
+                                                            <span
+                                                                className={[
+                                                                    "mb-1 rounded-full",
+                                                                    day.status === "checked"
+                                                                        ? "bg-[#6EB819]"
+                                                                        : "bg-white/15",
+                                                                    "h-2 w-2", // keep dot consistent
+                                                                ].join(" ")}
+                                                            />
+
+                                                            <span
+                                                                className={[
+                                                                    "text-[11px] font-medium",
+                                                                    isToday ? "text-brand-text" : "text-brand-text/90",
+                                                                ].join(" ")}
+                                                            >
+                                                                {day.label}
+                                                            </span>
+
+                                                            <span className="mt-0.5 text-[10px] text-brand-subtle">
+                                                                {day.status === "checked"
+                                                                    ? isToday
+                                                                        ? "Checked in"
+                                                                        : "Checked in"
+                                                                    : "No check-in"}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+
+                                        <p className="text-[11px] text-brand-subtle/80">
+                                            Streaks reset when you miss a day. The green dots show the
+                                            continuous run that built your current streak, with today
+                                            slightly highlighted on the right.
+                                        </p>
+                                    </div>
+                                )}
+                            </section>
+
 
 
                             <div className="mt-4 border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
