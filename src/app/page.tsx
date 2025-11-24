@@ -587,7 +587,7 @@ export default function FroggyLanding() {
                                 ${dashboardEnabled ? "hover:scale-[1.02] cursor-pointer" : "cursor-not-allowed"}`}
                                 style={{
                                     background: dashboardEnabled ? brand.secondary : "#e86a6a",
-                                    opacity: dashboardEnabled ? 1 : 0.6,
+                                    opacity: dashboardEnabled ? 1 : 0.4,
                                 }}
                             >
                                 Dashboard
