@@ -604,20 +604,28 @@ export default function FroggyLanding() {
                     <div className="relative">
                         <div
                             className="froggy-breathe relative mx-auto aspect-square max-w-sm
-                            rounded-2xl border border-white/10 bg-brand-card/25
+                            rounded-2xl border border-white/10 bg-brand-card/15
                             shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden"
                         >
+                            {/* subtle inner glow */}
+                            <div
+                                className="absolute inset-0 pointer-events-none opacity-[0.12]"
+                                style={{
+                                    background:
+                                        "radial-gradient(60% 60% at 50% 40%, #6eb819 0%, transparent 70%)",
+                                }}
+                            />
+
                             <Image
-                                src={froggyBase}
-                                alt="Froggy base mascot"
+                                src={froggySamurai}
+                                alt="Froggy samurai mascot"
                                 fill
-                                sizes="(min-width: 768px) 24rem, 18rem"
-                                className="object-contain p-5"
+                                className="relative z-10 object-contain p-5"
                                 priority
                             />
                         </div>
 
-                        {/* Upgraded Live badge, but simple */}
+                        {/* Live badge */}
                         <div className="absolute -top-3 -right-3 inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-semibold text-brand-text shadow-[0_0_14px_rgba(0,0,0,0.9)] backdrop-blur">
                             <span className="relative flex h-2.5 w-2.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
@@ -626,9 +634,9 @@ export default function FroggyLanding() {
                             <span>Live</span>
                         </div>
                     </div>
+
                 </div>
             </section>
-
 
             {/* Token Section */}
             <section id="token" className="mx-auto max-w-6xl px-4 pt-6 pb-14">
