@@ -602,18 +602,28 @@ export default function FroggyLanding() {
 
                     {/* Mascot card */}
                     <div className="relative">
-                        <div className="froggy-breathe relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/25 shadow-xl overflow-hidden">
+                        <div
+                            className="froggy-breathe relative mx-auto aspect-square max-w-sm
+                            rounded-2xl border border-white/10 bg-brand-card/25
+                            shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden"
+                        >
                             <Image
                                 src={froggyBase}
                                 alt="Froggy base mascot"
                                 fill
                                 sizes="(min-width: 768px) 24rem, 18rem"
-                                className="object-contain p-4"
+                                className="object-contain p-5"
+                                priority
                             />
                         </div>
 
-                        <div className="absolute -top-3 -right-3 rounded-full border border-white/15 bg-brand-secondary/20 px-3 py-1 text-[11px] font-semibold text-brand-text">
-                            Live
+                        {/* Upgraded Live badge, but simple */}
+                        <div className="absolute -top-3 -right-3 inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-semibold text-brand-text shadow-[0_0_14px_rgba(0,0,0,0.9)] backdrop-blur">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
+                                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6EB819]" />
+                            </span>
+                            <span>Live</span>
                         </div>
                     </div>
                 </div>
