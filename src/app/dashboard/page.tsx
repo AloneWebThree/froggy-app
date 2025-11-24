@@ -616,7 +616,7 @@ export default function DashboardPage() {
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
                                         <h2 className="text-lg font-semibold">Streak history</h2>
-                                        <p className="mt-1 text-xs text-brand-subtle">
+                                        <p className="mt-1 text-xs text-brand-subtle leading-tight">
                                             Snapshot of your last 7 days based on on-chain check-ins.
                                         </p>
                                     </div>
@@ -634,70 +634,57 @@ export default function DashboardPage() {
                                 </div>
 
                                 {historyWindow.length === 0 || wrongNetwork || isLoadingUser ? (
-                                    <p className="mt-4 text-xs text-brand-subtle">
-                                        Once you start checking in on Sei EVM, your recent 7-day pattern
-                                        will show up here.
+                                    <p className="mt-4 text-xs text-brand-subtle leading-tight">
+                                        Once you start checking in on Sei EVM, your recent 7-day pattern will show up here.
                                     </p>
                                 ) : (
                                     <div className="mt-4 flex flex-col gap-3">
-                                        <div className="flex flex-wrap gap-2.5">
-                                                {historyWindow.map((day) => {
-                                                    const isToday =
-                                                        currentUtcDay !== null && day.dayIndex === currentUtcDay;
+                                        <div className="flex flex-wrap justify-center gap-x-2.5 gap-y-3">
+                                            {historyWindow.map((day) => {
+                                                const isToday =
+                                                    currentUtcDay !== null && day.dayIndex === currentUtcDay;
 
-                                                    return (
-                                                        <div
-                                                            key={day.dayIndex}
+                                                return (
+                                                    <div
+                                                        key={day.dayIndex}
+                                                        className={[
+                                                            "flex flex-col items-center justify-center",
+                                                            "rounded-xl border px-3 py-2.5 min-w-[72px] text-center",
+                                                            "border-white/5 bg-transparent",
+                                                            isToday ? "border-white/15 bg-white/[0.03]" : "",
+                                                        ].join(" ")}
+                                                    >
+                                                        <span
                                                             className={[
-                                                                "flex flex-col items-center justify-center",
-                                                                "rounded-xl border px-3 py-2.5 min-w-[72px] text-center",
-                                                                // Base styling for all days
-                                                                "border-white/5 bg-transparent",
-                                                                // VERY subtle highlight for Today
-                                                                isToday ? "border-white/15 bg-white/[0.03]" : "",
+                                                                "mb-1 rounded-full h-2 w-2",
+                                                                day.status === "checked"
+                                                                    ? "bg-[#6EB819]"
+                                                                    : "bg-white/15",
+                                                            ].join(" ")}
+                                                        />
+                                                        <span
+                                                            className={[
+                                                                "text-[11px] font-medium",
+                                                                isToday ? "text-brand-text" : "text-brand-text/90",
                                                             ].join(" ")}
                                                         >
-                                                            <span
-                                                                className={[
-                                                                    "mb-1 rounded-full",
-                                                                    day.status === "checked"
-                                                                        ? "bg-[#6EB819]"
-                                                                        : "bg-white/15",
-                                                                    "h-2 w-2", // keep dot consistent
-                                                                ].join(" ")}
-                                                            />
-
-                                                            <span
-                                                                className={[
-                                                                    "text-[11px] font-medium",
-                                                                    isToday ? "text-brand-text" : "text-brand-text/90",
-                                                                ].join(" ")}
-                                                            >
-                                                                {day.label}
-                                                            </span>
-
-                                                            <span className="mt-0.5 text-[10px] text-brand-subtle">
-                                                                {day.status === "checked"
-                                                                    ? isToday
-                                                                        ? "Checked in"
-                                                                        : "Checked in"
-                                                                    : "No check-in"}
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                })}
+                                                            {day.label}
+                                                        </span>
+                                                        <span className="mt-0.5 text-[10px] text-brand-subtle">
+                                                            {day.status === "checked" ? "Checked in" : "No check-in"}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
 
-                                        <p className="text-[11px] text-brand-subtle/80">
-                                            Streaks reset when you miss a day. The green dots show the
-                                            continuous run that built your current streak, with today
-                                            slightly highlighted on the right.
+                                        <p className="text-[11px] text-brand-subtle/80 leading-tight">
+                                            Streaks reset when you miss a day. The green dots show the continuous run
+                                            that built your current streak.
                                         </p>
                                     </div>
                                 )}
                             </section>
-
-
 
                             <div className="mt-4 border-t border-white/10 pt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
