@@ -38,6 +38,8 @@ import froggySurf from "@public/gallery/froggy-surf.png";
 import froggyVik from "@public/gallery/froggy-vik.png";
 import froggyYaka from "@public/gallery/froggy-yaka.png";
 
+import { ADDR, URL } from "@/lib/froggyConfig";
+
 const brand = {
     bg: "#0b1221",
     primary: "#6eb819",
@@ -46,23 +48,6 @@ const brand = {
     card: "#121a2e",
     subtle: "#93A8C3",
 } as const;
-
-const ADDR = {
-  token: "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9",
-  pair: "0x373e718e54e73fb462fec3a73e9645efea280b84",
-};
-
-const URL = {
-    dexEmbed: `https://www.geckoterminal.com/sei-evm/pools/${ADDR.pair}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0&chart_type=price&resolution=1d`,
-    dexFull: `https://dexscreener.com/seiv2/${ADDR.pair}`,
-
-    pairExplorer: `https://seitrace.com/address/${ADDR.pair}?chain=pacific-1`,
-    tokenExplorer: `https://seitrace.com/token/${ADDR.token}?chain=pacific-1`,
-
-    dragon: `https://dragonswap.app/swap?outputCurrency=${ADDR.token}&inputCurrency=`,
-    yaka: `https://yaka.finance/swap?inputCurrency=SEI&outputCurrency=${ADDR.token}`,
-};
-
 
 function CopyButton({ value, label }: { value: string; label: string }) {
     const [msg, setMsg] = useState("");
@@ -602,11 +587,7 @@ export default function FroggyLanding() {
 
                     {/* Mascot card */}
                     <div className="relative">
-                        <div
-                            className="froggy-breathe relative mx-auto aspect-square max-w-sm
-                            rounded-2xl border border-white/10 bg-brand-card/15
-                            shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden"
-                        >
+                        <div className="froggy-breathe relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
                             {/* subtle inner glow */}
                             <div
                                 className="absolute inset-0 pointer-events-none opacity-[0.12]"

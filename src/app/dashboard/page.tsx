@@ -10,58 +10,14 @@ import {
 import { WalletButton } from "../providers";
 import LiveStats from "@/components/LiveStats";
 
-// ===== CONSTANTS =====
-const SEI_EVM_CHAIN_ID = 1329 as const; // Sei EVM mainnet chain id
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
-
-// ===== CONTRACT ADDRESSES =====
-// V1 0xB5668295f6A7174ca3813fFf59f822B595Cf65fE
-// v2 0x691ada7728fD5BDC50203d58dA3AbF2BC91c5C41
-const FROGGY_STREAK_ADDRESS =
-    "0x691ada7728fD5BDC50203d58dA3AbF2BC91c5C41" as const;
-const FROG_TOKEN_ADDRESS =
-    "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9" as const; // FROG token on Sei EVM
-
-// ===== ABIs =====
-const FROGGY_STREAK_ABI = [
-    {
-        inputs: [{ internalType: "address", name: "user", type: "address" }],
-        name: "getUserState",
-        outputs: [
-            { internalType: "uint32", name: "currentStreak", type: "uint32" },
-            { internalType: "uint32", name: "bestStreak", type: "uint32" },
-            { internalType: "uint32", name: "totalCheckIns", type: "uint32" },
-            { internalType: "uint64", name: "lastCheckInDay", type: "uint64" },
-            { internalType: "uint256", name: "lastRecordedBalance", type: "uint256" },
-        ],
-        stateMutability: "view",
-        type: "function",
-    },
-    {
-        inputs: [],
-        name: "checkIn",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-    },
-] as const;
-
-const ERC20_ABI = [
-    {
-        name: "balanceOf",
-        type: "function",
-        stateMutability: "view",
-        inputs: [{ name: "account", type: "address" }],
-        outputs: [{ name: "", type: "uint256" }],
-    },
-    {
-        name: "decimals",
-        type: "function",
-        stateMutability: "view",
-        inputs: [],
-        outputs: [{ name: "", type: "uint8" }],
-    },
-] as const;
+import {
+    SEI_EVM_CHAIN_ID,
+    ZERO_ADDRESS,
+    FROGGY_STREAK_ADDRESS,
+    FROG_TOKEN_ADDRESS,
+    FROGGY_STREAK_ABI,
+    ERC20_ABI,
+} from "@/lib/froggyConfig";
 
 // uint32 -> number, uint64/uint256 -> bigint
 type UserStateTuple = readonly [number, number, number, bigint, bigint];
