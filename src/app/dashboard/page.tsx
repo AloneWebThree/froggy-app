@@ -267,7 +267,6 @@ export default function DashboardPage() {
         data: txHash,
         writeContract,
         isPending: isCheckInPending,
-        error: checkInError,
     } = useWriteContract();
 
     const {
