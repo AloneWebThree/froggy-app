@@ -35,9 +35,10 @@ export function Donut({
         .segs.join(", ");
 
     const mask = `radial-gradient(
-        closest-side,
-        transparent calc(100% - ${thickness}px),
-        #000 calc(100% - ${thickness}px)
+    closest-side,
+    transparent calc(100% - ${thickness + 1}px),
+    rgba(0, 0, 0, 0.7) calc(100% - ${thickness}px),
+    #000 calc(100% - ${thickness - 1}px)
     )`;
 
     return (
@@ -50,6 +51,8 @@ export function Donut({
                 style={{
                     width: size,
                     height: size,
+                    WebkitMaskComposite: "source-in",
+                    maskComposite: "intersect",
                 }}
             >
                 <div
