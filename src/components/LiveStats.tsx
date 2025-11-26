@@ -10,23 +10,42 @@ function fmt(n: number) {
 }
 
 export default function LiveStats() {
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError } = useQuery({
         queryKey: ["frog-stats"],
-        queryFn: async () => (await fetch("/api/frog-stats")).json(),
-        refetchInterval: 60_000, // 60s
+        queryFn: async () => {
+            const res = await fetch("/api/frog-stats");
+            if (!res.ok) {
+                throw new Error("Failed to load stats");
+            }
+            return res.json();
+        },
+        refetchInterval: 60_000,
     });
 
-    const price = data?.priceUsd ?? 0;
-    const vol = data?.vol24hUsd ?? 0;
-    const liq = data?.liquidityUsd ?? 0;
+    const price = typeof data?.priceUsd === "number" ? data.priceUsd : 0;
+    const vol = typeof data?.vol24hUsd === "number" ? data.vol24hUsd : 0;
+    const liq = typeof data?.liquidityUsd === "number" ? data.liquidityUsd : 0;
 
     const card =
         "rounded-lg border border-white/10 p-3 transition-colors duration-150 hover:border-white/20 hover:bg-white/5";
-    const label = "text-brand-subtle";
-    const value = "mt-1 text-sm font-semibold whitespace-nowrap";
+    const label = "text-[11px] uppercase tracking-wide text-brand-subtle/80";
+    const value = "mt-1 text-sm font-mono";
+
+    if (isError) {
+        return (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 text-xs text-brand-subtle">
+                <div className={card}>
+                    <div className={label}>Live Stats</div>
+                    <div className="mt-1 text-[11px] text-yellow-300">
+                        Unable to load on-chain market data right now.
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className={card}>
                 <div className={label}>Price</div>
                 <div className={value}>{isLoading ? "…" : fmt(price)}</div>
@@ -42,3 +61,4 @@ export default function LiveStats() {
         </div>
     );
 }
+

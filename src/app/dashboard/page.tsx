@@ -55,6 +55,20 @@ export default function DashboardPage() {
         return `${address.slice(0, 6)}…${address.slice(-4)}`;
     }, [address]);
 
+    const [copyMsg, setCopyMsg] = useState<string | null>(null);
+
+    const handleCopy = async () => {
+        if (!address) return;
+        try {
+            await navigator.clipboard.writeText(address);
+            setCopyMsg("Copied");
+            setTimeout(() => setCopyMsg(null), 1000);
+        } catch {
+            setCopyMsg("Failed");
+            setTimeout(() => setCopyMsg(null), 1000);
+        }
+    };
+
     // ===== READ: getUserState (streak contract) =====
     const {
         data: userStateRaw,
@@ -387,6 +401,15 @@ export default function DashboardPage() {
                                         <code className="rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[13px]">
                                             {shortAddress}
                                         </code>
+                                        {address && (
+                                            <button
+                                                type="button"
+                                                onClick={handleCopy}
+                                                className="text-[11px] rounded-full border border-white/15 px-2 py-0.5 text-brand-subtle hover:border-brand-primary/60 hover:text-brand-primary transition"
+                                            >
+                                                {copyMsg ?? "Copy"}
+                                            </button>
+                                        )}
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
