@@ -2,6 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+type FrogStats = {
+    priceUsd: number;
+    vol24hUsd: number;
+    liquidityUsd: number;
+};
+
 function fmt(n: number) {
     if (!n) return "$0";
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
@@ -10,16 +16,19 @@ function fmt(n: number) {
 }
 
 export default function LiveStats() {
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError } = useQuery<FrogStats>({
         queryKey: ["frog-stats"],
         queryFn: async () => {
             const res = await fetch("/api/frog-stats");
             if (!res.ok) {
                 throw new Error("Failed to load stats");
             }
-            return res.json();
+            return res.json() as Promise<FrogStats>;
         },
-        refetchInterval: 60_000,
+        staleTime: 30_000,          // don't spam your own API for no reason
+        refetchInterval: 60_000,    // once a minute is plenty
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 
     const price = typeof data?.priceUsd === "number" ? data.priceUsd : 0;
@@ -61,4 +70,3 @@ export default function LiveStats() {
         </div>
     );
 }
-

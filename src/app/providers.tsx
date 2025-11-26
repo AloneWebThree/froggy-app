@@ -12,18 +12,7 @@ import {
 } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { defineChain } from "viem";
-
-// --- Sei EVM chain definition ---
-const sei = defineChain({
-    id: 1329,
-    name: "Sei EVM",
-    nativeCurrency: { name: "SEI", symbol: "SEI", decimals: 18 },
-    rpcUrls: { default: { http: ["https://evm-rpc.sei-apis.com"] } },
-    blockExplorers: {
-        default: { name: "SeiTrace", url: "https://seitrace.com/?chain=pacific-1" },
-    },
-});
+import { sei } from "@/lib/sei";
 
 // --- wagmi config: injected only (browser wallets) ---
 export const config = createConfig({

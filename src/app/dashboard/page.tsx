@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatUnits } from "viem";
+import Link from "next/link";
 import {
     useAccount,
     useReadContract,
@@ -19,8 +21,8 @@ import {
     ERC20_ABI,
 } from "@/lib/froggyConfig";
 
-// uint32 -> number, uint64/uint256 -> bigint
-type UserStateTuple = readonly [number, number, number, bigint, bigint];
+// uint32/uint64/uint256 come back as bigint by default
+type UserStateTuple = readonly [bigint, bigint, bigint, bigint, bigint];
 
 function normalizeUserState(userState: UserStateTuple | undefined) {
     if (!userState) {
@@ -34,9 +36,9 @@ function normalizeUserState(userState: UserStateTuple | undefined) {
     }
 
     return {
-        currentStreak: userState[0],
-        bestStreak: userState[1],
-        totalCheckIns: userState[2],
+        currentStreak: Number(userState[0]),
+        bestStreak: Number(userState[1]),
+        totalCheckIns: Number(userState[2]),
         lastCheckInDay: Number(userState[3]),
         lastRecordedBalance: userState[4],
     };
@@ -220,17 +222,24 @@ export default function DashboardPage() {
 
     const frogBalance = useMemo(() => {
         if (!frogBalanceRaw || frogDecimalsRaw === undefined) return 0;
+
         const decimals =
             typeof frogDecimalsRaw === "number"
                 ? frogDecimalsRaw
                 : Number(frogDecimalsRaw);
-        return Number(frogBalanceRaw as bigint) / 10 ** decimals;
+
+        try {
+            return Number(formatUnits(frogBalanceRaw as bigint, decimals));
+        } catch {
+            // Fallback – should basically never hit
+            return 0;
+        }
     }, [frogBalanceRaw, frogDecimalsRaw]);
 
     // Check if current raw balance > lastRecordedBalance (both in raw units)
     const hasIncreasedBalance: boolean = useMemo(() => {
-        if (frogBalanceRaw === undefined || frogBalanceRaw === null) return true;
-        if (lastRecordedBalance === null) return true; // let contract enforce for first-time users
+        if (frogBalanceRaw === undefined || frogBalanceRaw === null) return false;
+        if (lastRecordedBalance === null) return true; // first time, contract will enforce rules
         return (frogBalanceRaw as bigint) > lastRecordedBalance;
     }, [frogBalanceRaw, lastRecordedBalance]);
 
@@ -256,7 +265,17 @@ export default function DashboardPage() {
     }, [isTxConfirmed, refetchUserState]);
 
     const handleCheckIn = () => {
-        if (!address || wrongNetwork) return;
+        if (
+            !address ||
+            wrongNetwork ||
+            isBalanceLoading ||
+            hasCheckedInToday ||
+            frogBalanceRaw == null ||
+            !hasIncreasedBalance
+        ) {
+            return;
+        }
+
         writeContract({
             address: FROGGY_STREAK_ADDRESS,
             abi: FROGGY_STREAK_ABI,
@@ -272,17 +291,31 @@ export default function DashboardPage() {
         isCheckInPending ||
         isConfirmingTx ||
         hasCheckedInToday ||
+        frogBalanceRaw == null ||            // NEW: don’t even try if no balance available
         !hasIncreasedBalance;
 
-    const checkInLabel: string = (() => {
+    const checkInLabel = useMemo(() => {
         if (!isConnected) return "Connect wallet to check in";
         if (wrongNetwork) return "Switch to Sei EVM";
         if (isBalanceLoading) return "Loading balance…";
+
+        if (frogBalanceRaw == null) return "Cannot load balance…";
+
         if (isCheckInPending || isConfirmingTx) return "Checking in...";
         if (hasCheckedInToday) return "Checked in ✓";
         if (!hasIncreasedBalance) return "Increase your FROG balance to check in";
-        return "Check in for today";
-    })();
+
+        return "Check in";
+    }, [
+        isConnected,
+        wrongNetwork,
+        isBalanceLoading,
+        frogBalanceRaw,
+        isCheckInPending,
+        isConfirmingTx,
+        hasCheckedInToday,
+        hasIncreasedBalance,
+    ]);
 
     const checkInColor: string = (() => {
         if (!isConnected) {
@@ -294,18 +327,18 @@ export default function DashboardPage() {
         if (isBalanceLoading) {
             return "bg-brand-primary/40 text-black/60 animate-pulse";
         }
+        if (frogBalanceRaw == null) {
+            return "bg-yellow-250 text-black hover:bg-yellow-250";
+        }
         if (isCheckInPending || isConfirmingTx) {
             return "bg-brand-primary/70 text-black animate-pulse";
         }
         if (hasCheckedInToday) {
-            // Success / completed — FROGGY GREEN
             return "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
         }
         if (!hasIncreasedBalance) {
-            // Froggy blush
             return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
         }
-        // Ready
         return "bg-brand-primary text-[#081318] hover:scale-[1.02]";
     })();
 
@@ -320,13 +353,13 @@ export default function DashboardPage() {
                                 Froggy Dashboard
                             </h1>
 
-                            <a
+                            <Link
                                 href="/"
                                 className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3.5 py-1.5 text-xs md:text-sm font-medium text-brand-subtle border border-white/15 hover:bg-white/10 hover:border-white/30 transition-colors"
                             >
                                 <span className="text-base leading-none">←</span>
                                 <span>Back to landing</span>
-                            </a>
+                            </Link>
                         </div>
                         <p className="mt-2 text-sm text-brand-subtle">
                             Lock in your daily $FROG streak and earn on-chain rewards over time.
@@ -415,11 +448,12 @@ export default function DashboardPage() {
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="text-brand-subtle">Balance:</span>
                                         <span className="text-sm font-mono">
-                                            {frogBalance.toLocaleString(undefined, {
-                                                maximumFractionDigits: 4,
-                                                minimumFractionDigits: 0,
-                                            })}{" "}
-                                            FROG
+                                            {isBalanceLoading || wrongNetwork
+                                                ? "Loading…"
+                                                : `${frogBalance.toLocaleString(undefined, {
+                                                    maximumFractionDigits: 4,
+                                                    minimumFractionDigits: 0,
+                                                })} FROG`}
                                         </span>
                                     </div>
 
