@@ -57,20 +57,6 @@ export default function DashboardPage() {
         return `${address.slice(0, 6)}…${address.slice(-4)}`;
     }, [address]);
 
-    const [copyMsg, setCopyMsg] = useState<string | null>(null);
-
-    const handleCopy = async () => {
-        if (!address) return;
-        try {
-            await navigator.clipboard.writeText(address);
-            setCopyMsg("Copied");
-            setTimeout(() => setCopyMsg(null), 1000);
-        } catch {
-            setCopyMsg("Failed");
-            setTimeout(() => setCopyMsg(null), 1000);
-        }
-    };
-
     // ===== READ: getUserState (streak contract) =====
     const {
         data: userStateRaw,
