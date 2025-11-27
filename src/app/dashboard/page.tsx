@@ -418,14 +418,26 @@ export default function DashboardPage() {
                                     <h2 className="text-sm font-semibold tracking-tight">
                                         Your wallet
                                     </h2>
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-brand-subtle border border-white/10">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                                        {isOnSeiEvm
-                                            ? "Sei EVM mainnet"
-                                            : chainId
-                                                ? `Chain ID: ${chainId}`
-                                                : "Chain: Unknown"}
-                                    </span>
+
+                                    <div className="flex items-center gap-2">
+                                        {/* FAQ BUTTON */}
+                                        <Link
+                                            href="/dashboard/faq"
+                                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-white/10 transition"
+                                        >
+                                            FAQ
+                                        </Link>
+
+                                        {/* NETWORK BADGE */}
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-brand-subtle border border-white/10">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                            {isOnSeiEvm
+                                                ? "Sei EVM mainnet"
+                                                : chainId
+                                                    ? `Chain ID: ${chainId}`
+                                                    : "Chain: Unknown"}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="mt-3 space-y-2 text-sm">
@@ -434,15 +446,6 @@ export default function DashboardPage() {
                                         <code className="rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[13px]">
                                             {shortAddress}
                                         </code>
-                                        {address && (
-                                            <button
-                                                type="button"
-                                                onClick={handleCopy}
-                                                className="text-[11px] rounded-full border border-white/15 px-2 py-0.5 text-brand-subtle hover:border-brand-primary/60 hover:text-brand-primary transition"
-                                            >
-                                                {copyMsg ?? "Copy"}
-                                            </button>
-                                        )}
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
@@ -724,7 +727,6 @@ export default function DashboardPage() {
                                 </button>
                             </div>
                         </section>
-
                         {/* Market snapshot */}
                         <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
                             <div className="flex items-center justify-between gap-3 mb-2">
