@@ -30,14 +30,20 @@ export default function StreakInfo() {
             >
                 <div className="mt-4 space-y-8 text-[15px] leading-relaxed text-brand-subtle">
 
+                    {/* TLDR */}
                     <Section
-                        title="1. One Check-In Per Day"
-                        body="You can check in once per UTC day. A second check-in attempt during the same day will always fail."
+                        title="TL;DR"
+                        body="Streaks reward holders who increase their FROG balance and check in every UTC day. Missing a day or failing to increase your balance resets your streak and your reward window."
+                    />
+
+                    <Section
+                        title="1. One Check-In Per Day (UTC)"
+                        body="You can check in once per UTC day. A second check-in attempt during the same UTC day will fail. Streaks are based on UTC time, not your local timezone."
                     />
 
                     <Section
                         title="2. Balance Must Increase"
-                        body="Your FROG balance must be higher than it was on your last check-in. Same or lower balance = failed check-in. Selling breaks eligibility until you exceed your previous all-time-high balance."
+                        body="Your FROG balance must be higher than it was on your last check-in. Same or lower balance = failed check-in. Selling breaks eligibility until you stack more tokens."
                     />
 
                     <Section
@@ -47,12 +53,12 @@ export default function StreakInfo() {
 
                     <Section
                         title="4. How Streaks Work"
-                        body="A streak is a chain of consecutive UTC days where you successfully check in. Missing even one day resets your streak back to 1."
+                        body="A streak is a chain of consecutive UTC days where you successfully check in. Missing even one day resets your streak back to 1. There is no grace period."
                     />
 
                     <Section
                         title="5. Streak Reset Behavior"
-                        body="Missing a day resets your streak and your streak window. Your streakStartBalance becomes your current balance and addedDuringStreak resets to zero."
+                        body="Missing a day resets your streak and streak window. Your streakStartBalance becomes your current balance and addedDuringStreak resets to zero. Any growth before the new streak does not count toward rewards."
                     />
 
                     <div>
@@ -84,6 +90,18 @@ export default function StreakInfo() {
                         title="9. Contract Safety"
                         body="The contract never transfers your tokens and never requires approvals. It only reads your balance to calculate streaks and rewards. Extremely safe."
                     />
+
+                    <div>
+                        <h3 className="font-semibold text-white mb-1">10. Common Reasons Check-In Fails</h3>
+                        <ul className="list-disc pl-6 space-y-1">
+                            <li>You’re not on the Sei EVM mainnet</li>
+                            <li>You already checked in today</li>
+                            <li>Your balance did not increase since the last check-in</li>
+                            <li>You hold less than the minimum 100 FROG</li>
+                            <li>You tried too early before the new UTC day started</li>
+                        </ul>
+                    </div>
+
                 </div>
             </div>
         </section>
