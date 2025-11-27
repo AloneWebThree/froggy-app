@@ -40,7 +40,7 @@ export function TokenSection() {
                     },
                     {
                         k: "Holders",
-                        v: "1,302 Holders",
+                        v: "1,312 Holders",
                         d: "View holder data on Sei Explorer.",
                         link: "https://seitrace.com/token/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1&tab=holders",
                     },

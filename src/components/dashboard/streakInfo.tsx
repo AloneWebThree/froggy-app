@@ -91,17 +91,6 @@ export default function StreakInfo() {
                         body="The contract never transfers your tokens and never requires approvals. It only reads your balance to calculate streaks and rewards. Extremely safe."
                     />
 
-                    <div>
-                        <h3 className="font-semibold text-white mb-1">10. Common Reasons Check-In Fails</h3>
-                        <ul className="list-disc pl-6 space-y-1">
-                            <li>You’re not on the Sei EVM mainnet</li>
-                            <li>You already checked in today</li>
-                            <li>Your balance did not increase since the last check-in</li>
-                            <li>You hold less than the minimum 100 FROG</li>
-                            <li>You tried too early before the new UTC day started</li>
-                        </ul>
-                    </div>
-
                 </div>
             </div>
         </section>
