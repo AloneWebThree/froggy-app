@@ -38,7 +38,7 @@ export default function StreakInfo() {
 
                     <Section
                         title="1. One Check-In Per Day (UTC)"
-                        body="You can check in once per UTC day. A second check-in attempt during the same UTC day will fail. Streaks are based on UTC time, not your local timezone."
+                        body="You can check in once per UTC day. A second check-in attempt during the same UTC day will fail. Streaks are based on UTC time, not your local timezones."
                     />
 
                     <Section
