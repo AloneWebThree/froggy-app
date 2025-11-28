@@ -20,7 +20,7 @@ export const metadata: Metadata = {
         siteName: "Froggy",
         images: [
             {
-                url: "https://frogonsei.app/ogp.jpg", // absolute URL
+                url: "https://frogonsei.app/ogp.png", // absolute URL
                 width: 1200,
                 height: 630,
             },
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
         card: "summary_large_image",
         title: "Froggy | Zero-tax community token on Sei",
         description: "1B supply. Liquidity locked. Built for memes, merchants, and holders.",
-        images: ["https://frogonsei.app/ogp.jpg"], // absolute
+        images: ["https://frogonsei.app/ogp.png"], // absolute
     },
 
     keywords: ["FROG", "Froggy", "Sei", "Sei Network", "crypto", "token", "zero-tax"],
