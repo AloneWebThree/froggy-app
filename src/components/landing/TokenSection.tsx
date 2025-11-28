@@ -13,8 +13,8 @@ const supplyDistribution: DonutSlice[] = [
 export function TokenSection() {
     return (
         <section id="token" className="mx-auto max-w-6xl px-4 pt-6 pb-14">
-            <h2 className="text-2xl md:text-3xl font-bold">Token</h2>
-            <p className="mt-2 text-slate-300/90 text-sm leading-snug text-center md:text-left">
+            <h2 className="text-2xl md:text-3xl font-bold">Token Metrics</h2>
+            <p className="mt-2 text-brand-subtle text-sm leading-snug text-center md:text-left">
                 Core tokenomics for the Froggy ecosystem.
             </p>
 
@@ -40,7 +40,7 @@ export function TokenSection() {
                     },
                     {
                         k: "Holders",
-                        v: "1,312 Holders",
+                        v: "1,300+ Holders",
                         d: "View holder data on Sei Explorer.",
                         link: "https://seitrace.com/token/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1&tab=holders",
                     },
@@ -62,11 +62,13 @@ export function TokenSection() {
                                 {v}
                             </a>
                         ) : (
-                            <div className="mt-1 text-lg font-semibold text-slate-100">
+                            <div className="mt-1 text-lg font-semibold text-brand-text">
                                 {v}
                             </div>
                         )}
-                        <div className="mt-1 text-slate-400 text-sm">{d}</div>
+                        <div className="mt-1 text-brand-subtle text-sm">
+                            {d}
+                        </div>
                     </div>
                 ))}
             </div>
@@ -80,15 +82,14 @@ export function TokenSection() {
                     aria-hidden="true"
                     width={400}
                     height={400}
-                    priority
                     className="pointer-events-none select-none absolute -right-16 -bottom-20 opacity-5 md:opacity-10"
                 />
 
                 <div className="relative">
-                    <h3 className="text-lg font-semibold flex items-center justify-between text-center md:text-left">
+                    <h3 className="text-lg font-semibold flex items-center justify-between text-center md:text-left gap-2">
                         <span>Supply Distribution</span>
-                        <span className="text-xs text-brand-subtle">
-                            Percentages set at bonding on 10/11/2024
+                        <span className="text-xs text-brand-subtle whitespace-nowrap">
+                            Percentages set at bonding on Oct 11, 2024
                         </span>
                     </h3>
 
