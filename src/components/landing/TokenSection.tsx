@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import { Donut, type DonutSlice } from "@/components/landing/Donut";
+import froggyHero from "@public/gallery/froggy-hero.png";
 
 const supplyDistribution: DonutSlice[] = [
     { label: "Liquidity", value: 20, color: "#6EB819" },
     { label: "Community", value: 70, color: "#5AA6FF" },
-    { label: "Development Team", value: 5, color: "#FDDC69" },
+    { label: "Team", value: 5, color: "#FDDC69" },
     { label: "CEX Reserve", value: 5, color: "#FF7A7A" },
 ];
 
@@ -77,7 +78,7 @@ export function TokenSection() {
             <div className="mt-8 rounded-2xl border border-white/10 bg-brand-card/60 p-5 relative overflow-hidden">
                 {/* Watermark */}
                 <Image
-                    src="/gallery/froggy-hero.png"
+                    src={froggyHero}
                     alt=""
                     aria-hidden="true"
                     width={400}
