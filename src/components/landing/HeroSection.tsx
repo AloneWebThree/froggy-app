@@ -25,7 +25,7 @@ export function HeroSection() {
                 <div>
                     <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
                         Community first,
-                        <span className="text-brand-primary"> zero-tax</span> trading on Sei Network
+                        <span className="text-brand-primary"> zero-tax</span> token on Sei Network
                     </h1>
 
                     <p className="mt-4 text-brand-subtle max-w-prose">
