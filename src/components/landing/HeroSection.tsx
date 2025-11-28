@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAccount } from "wagmi";
@@ -10,15 +9,9 @@ import { brand } from "@/lib/brand";
 import froggySamurai from "@public/gallery/froggy-samurai.png";
 
 export function HeroSection() {
-    // Dashboard check (moved from page.tsx)
+    // Wallet connection state
     const { isConnected } = useAccount();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const dashboardEnabled = mounted && isConnected;
+    const dashboardEnabled = isConnected;
 
     return (
         <section id="home" className="relative">
@@ -32,44 +25,51 @@ export function HeroSection() {
                 <div>
                     <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
                         Community first,
-                        <span style={{ color: brand.primary }}> zero-tax</span> trading on Sei Network
+                        <span className="text-brand-primary"> zero-tax</span> trading on Sei Network
                     </h1>
-                    <p className="mt-4 text-slate-300/90 max-w-prose">
-                        1B supply. Liquidity locked. Built for memes, investors, and holders. Utility
-                        that compounds with every holder.
+
+                    <p className="mt-4 text-brand-subtle max-w-prose">
+                        1B supply. Liquidity locked. Built for memes, investors, and long-term holders who
+                        actually stick around.
                     </p>
-                    <p className="mt-4 text-slate-300/90 max-w-prose">
-                        Contract is immutable and finalized!
+                    <p className="mt-4 text-brand-subtle max-w-prose">
+                        Contract is immutable and finalized. Daily streaks and on-chain rewards are designed
+                        to favor holders who keep stacking FROG over time.
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-3">
                         <a
                             href="#swap"
-                            className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-                            style={{ background: brand.primary, color: "#081318" }}
+                            className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/40 bg-brand-primary text-brand-bg"
                         >
                             Trade $FROG
                         </a>
 
-                        {/* Holder Dashboard — red when locked, blue when wallet is connected */}
-                        <Link
-                            href={dashboardEnabled ? "/dashboard" : "#"}
-                            onClick={(e) => {
-                                if (!dashboardEnabled) e.preventDefault();
-                            }}
-                            className={`rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150
-                                ${dashboardEnabled ? "hover:scale-[1.02] cursor-pointer" : "cursor-not-allowed"}`}
-                            style={{
-                                background: dashboardEnabled ? brand.secondary : "#e86a6a",
-                                opacity: dashboardEnabled ? 1 : 0.4,
-                            }}
-                        >
-                            Dashboard
-                        </Link>
+                        {/* Holder Dashboard — red when locked, brand secondary when wallet is connected */}
+                        {dashboardEnabled ? (
+                            <Link
+                                href="/dashboard"
+                                className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] cursor-pointer bg-brand-secondary text-brand-bg"
+                            >
+                                Dashboard
+                            </Link>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled
+                                className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 cursor-not-allowed bg-[#e86a6a] opacity-40"
+                            >
+                                Dashboard
+                            </button>
+                        )}
                     </div>
 
+                    <p className="mt-2 text-[11px] text-brand-subtle">
+                        Dashboard access requires a connected wallet on Sei EVM.
+                    </p>
+
                     <div className="mt-6 text-xs text-brand-subtle leading-snug">
-                        CA: <code className="select-all">{ADDR.token}</code>
+                        Token Contract: <code className="select-all">{ADDR.token}</code>
                     </div>
                 </div>
 
