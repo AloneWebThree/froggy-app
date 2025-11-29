@@ -16,6 +16,15 @@ export const FROG_PAIR_ADDRESS =
 // V2 (current): 0x691ada7728fD5BDC50203d58dA3AbF2BC91c5C41
 export const FROGGY_STREAK_ADDRESS =
     "0x691ada7728fD5BDC50203d58dA3AbF2BC91c5C41" as const;
+	
+// DragonSwap V1 router on Sei mainnet
+export const DRAGON_ROUTER_ADDRESS =
+    "0xa4cF2F53D1195aDDdE9e4D3aCa54f556895712f2" as const;
+
+// Wrapped SEI (wSEI) on Sei mainnet
+export const WSEI_ADDRESS =
+    "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7" as const;
+
 
 // Convenience object used by the landing page today
 export const ADDR = {
@@ -83,3 +92,30 @@ export const ERC20_ABI = [
         outputs: [{ name: "", type: "uint8" }],
     },
 ] as const;
+
+export const DRAGON_ROUTER_ABI = [
+    {
+        name: "swapExactSEIForTokens",
+        type: "function",
+        stateMutability: "payable",
+        inputs: [
+            { name: "amountOutMin", type: "uint256" },
+            { name: "path", type: "address[]" },
+            { name: "to", type: "address" },
+            { name: "deadline", type: "uint256" },
+        ],
+        outputs: [{ name: "amounts", type: "uint256[]" }],
+    },
+    {
+        // view function for quote
+        name: "getAmountsOut",
+        type: "function",
+        stateMutability: "view",
+        inputs: [
+            { name: "amountIn", type: "uint256" },
+            { name: "path", type: "address[]" },
+        ],
+        outputs: [{ name: "amounts", type: "uint256[]" }],
+    },
+] as const;
+

@@ -23,7 +23,7 @@ export function CopyButton({ value, label }: CopyButtonProps) {
     };
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
             <button
                 type="button"
                 onClick={copy}

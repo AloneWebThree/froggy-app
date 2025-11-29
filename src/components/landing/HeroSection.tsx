@@ -42,7 +42,7 @@ export function HeroSection() {
                             href="#swap"
                             className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/40 bg-brand-primary text-brand-bg"
                         >
-                            Trade $FROG
+                            Buy $FROG
                         </a>
 
                         {/* Holder Dashboard — red when locked, brand secondary when wallet is connected */}
