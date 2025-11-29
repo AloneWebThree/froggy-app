@@ -22,8 +22,18 @@ import {
     WSEI_ADDRESS,
 } from "@/lib/froggyConfig";
 
+import { SwapSuccessToast } from "@/components/ui/SwapSuccessToast";
+import { SwapErrorToast } from "@/components/ui/SwapErrorToast"; // ← ADDED
+
 export function SwapSection() {
     const [amount, setAmount] = useState("");
+
+    // toast
+    const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const [txForToast, setTxForToast] = useState<`0x${string}` | undefined>();
+
+    const [showErrorToast, setShowErrorToast] = useState(false); // ← ADDED
+    const [errorToastMessage, setErrorToastMessage] = useState<string | undefined>(); // ← ADDED
 
     // parsed input for quote
     let amountInForQuote: bigint | null = null;
@@ -39,9 +49,20 @@ export function SwapSection() {
     const chainId = useChainId();
 
     const { writeContract, data: txHash, isPending } = useWriteContract();
-    const { isLoading: isConfirming } = useWaitForTransactionReceipt({
+    const {
+        isLoading: isConfirming,
+        isSuccess: isTxConfirmed,
+    } = useWaitForTransactionReceipt({
         hash: txHash,
     });
+
+    // when tx is confirmed, show toast
+    useEffect(() => {
+        if (isTxConfirmed && txHash) {
+            setTxForToast(txHash as `0x${string}`);
+            setShowSuccessToast(true);
+        }
+    }, [isTxConfirmed, txHash]);
 
     const quotePath: Address[] = [WSEI_ADDRESS, ADDR.token as Address];
 
@@ -122,8 +143,21 @@ export function SwapSection() {
                 args: [minOutFromQuote, path, address as Address, deadline],
                 value: amountIn,
             });
-        } catch {
-            // user sees all errors in wallet → no UI needed
+        } catch (err: unknown) {
+            const fallback = "Transaction was rejected or failed.";
+
+            let msg = fallback;
+
+            if (err && typeof err === "object") {
+                const e = err as { shortMessage?: string; message?: string };
+                msg = e.shortMessage || e.message || fallback;
+            } else if (typeof err === "string") {
+                msg = err;
+            }
+
+            setErrorToastMessage(msg);
+            setShowErrorToast(true);
+
             return;
         }
     }
@@ -246,8 +280,8 @@ export function SwapSection() {
                         onClick={handleSwap}
                         disabled={swapDisabled}
                         className={`mt-5 h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${swapDisabled
-                                ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle"
-                                : "bg-brand-primary text-black hover:scale-[1.01]"
+                            ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle"
+                            : "bg-brand-primary text-black hover:scale-[1.01]"
                             }`}
                     >
                         {swapLabel}
@@ -285,6 +319,18 @@ export function SwapSection() {
                     </div>
                 </div>
             </div>
+
+            <SwapSuccessToast
+                open={showSuccessToast}
+                onClose={() => setShowSuccessToast(false)}
+                txHash={txForToast}
+            />
+
+            <SwapErrorToast
+                open={showErrorToast}
+                onClose={() => setShowErrorToast(false)}
+                errorMessage={errorToastMessage}
+            />
         </section>
     );
 }
