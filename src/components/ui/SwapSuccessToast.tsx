@@ -42,7 +42,7 @@ export function SwapSuccessToast({ open, onClose, txHash }: SwapSuccessToastProp
 
                 <div className="flex gap-3">
                     <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-brand-primary bg-brand-primary/15 text-base">
-                        <span className="leading-none">🐸</span>
+                        <span className="leading-none"> 💰 </span>
                     </div>
 
                     <div className="space-y-1 text-xs">

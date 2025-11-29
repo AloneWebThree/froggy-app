@@ -36,7 +36,7 @@ export function SwapErrorToast({ open, onClose, errorMessage }: SwapErrorToastPr
 
                 <div className="flex gap-3">
                     <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-[#FD6155] bg-[#FD6155]/15 text-base">
-                        <span className="leading-none">⚠️</span>
+                        <span className="leading-none"> ⚠️ </span>
                     </div>
 
                     <div className="space-y-1 text-xs">
