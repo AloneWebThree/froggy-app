@@ -23,7 +23,7 @@ export function SwapErrorToast({ open, onClose, errorMessage }: SwapErrorToastPr
             <div
                 className="relative rounded-2xl border border-[#FD6155]/80 bg-brand-card/95 px-4 py-3 backdrop-blur"
                 style={{
-                    boxShadow: "0 0 24px rgba(253, 97, 85, 0.45)", // Froggy blush glow
+                    boxShadow: "0 0 12px rgba(253, 97, 85, 0.45)", // Froggy blush glow
                 }}
             >
                 <button
@@ -36,7 +36,7 @@ export function SwapErrorToast({ open, onClose, errorMessage }: SwapErrorToastPr
 
                 <div className="flex gap-3">
                     <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-[#FD6155] bg-[#FD6155]/15 text-base">
-                        <span className="leading-none"> ⚠️ </span>
+                        <span className="leading-none"> ⛔ </span>
                     </div>
 
                     <div className="space-y-1 text-xs">

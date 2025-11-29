@@ -29,7 +29,7 @@ export function SwapSuccessToast({ open, onClose, txHash }: SwapSuccessToastProp
             <div
                 className="relative rounded-2xl border border-brand-primary/80 bg-brand-card/95 px-4 py-3 shadow-lg backdrop-blur"
                 style={{
-                    boxShadow: "0 0 24px rgba(110, 184, 25, 0.45)", // Froggy green glow
+                    boxShadow: "0 0 12px rgba(110, 184, 25, 0.45)", // Froggy green glow
                 }}
             >
                 <button
