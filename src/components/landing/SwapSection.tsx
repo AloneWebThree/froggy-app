@@ -23,7 +23,7 @@ import {
 } from "@/lib/froggyConfig";
 
 import { SwapSuccessToast } from "@/components/ui/SwapSuccessToast";
-import { SwapErrorToast } from "@/components/ui/SwapErrorToast"; // ← ADDED
+import { SwapErrorToast } from "@/components/ui/SwapErrorToast";
 
 export function SwapSection() {
     const [amount, setAmount] = useState("");
@@ -32,8 +32,42 @@ export function SwapSection() {
     const [showSuccessToast, setShowSuccessToast] = useState(false);
     const [txForToast, setTxForToast] = useState<`0x${string}` | undefined>();
 
-    const [showErrorToast, setShowErrorToast] = useState(false); // ← ADDED
-    const [errorToastMessage, setErrorToastMessage] = useState<string | undefined>(); // ← ADDED
+    const [showErrorToast, setShowErrorToast] = useState(false);
+    const [errorToastMessage, setErrorToastMessage] = useState<string | undefined>();
+
+    // USD pricing
+    const [seiUsdPrice, setSeiUsdPrice] = useState<number | null>(null);
+    const [frogUsdPrice, setFrogUsdPrice] = useState<number | null>(null);
+
+    // fetch SEI → USD once
+    useEffect(() => {
+        async function fetchSeiPrice() {
+            try {
+                const res = await fetch(
+                    "https://api.coingecko.com/api/v3/simple/price?ids=sei-network&vs_currencies=usd"
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+                const price = data?.["sei-network"]?.usd;
+                if (typeof price === "number") {
+                    setSeiUsdPrice(price);
+                }
+            } catch (err) {
+                console.error("Failed to fetch SEI price", err);
+            }
+        }
+
+        fetchSeiPrice();
+    }, []);
+
+    const formatUsd = (value: number) => {
+        if (!Number.isFinite(value)) return null;
+        const opts =
+            value >= 1
+                ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                : { minimumFractionDigits: 2, maximumFractionDigits: 4 };
+        return `$${value.toLocaleString(undefined, opts)}`;
+    };
 
     // parsed input for quote
     let amountInForQuote: bigint | null = null;
@@ -44,6 +78,12 @@ export function SwapSection() {
     } catch {
         amountInForQuote = null;
     }
+
+    const parsedAmount = amount ? Number(amount.replace(",", ".")) : 0;
+    const fromUsdValue =
+        seiUsdPrice !== null && parsedAmount > 0
+            ? parsedAmount * seiUsdPrice
+            : null;
 
     const { address } = useAccount();
     const chainId = useChainId();
@@ -65,7 +105,9 @@ export function SwapSection() {
     }, [isTxConfirmed, txHash]);
 
     const quotePath: Address[] = [WSEI_ADDRESS, ADDR.token as Address];
+    const oneSei = parseUnits("1", 18);
 
+    // main quote for the user-entered amount
     const { data: quoteData, isLoading: isQuoteLoading } = useReadContract({
         address: DRAGON_ROUTER_ADDRESS as Address,
         abi: DRAGON_ROUTER_ABI,
@@ -79,22 +121,69 @@ export function SwapSection() {
         },
     });
 
+    // price quote for 1 SEI -> FROG to derive FROG/USD
+    const { data: priceQuoteData } = useReadContract({
+        address: DRAGON_ROUTER_ADDRESS as Address,
+        abi: DRAGON_ROUTER_ABI,
+        functionName: "getAmountsOut",
+        args: [oneSei, quotePath],
+        query: {
+            enabled: seiUsdPrice !== null,
+        },
+    });
+
     let frogOutFormatted: string | null = null;
     let minOutFromQuote: bigint | null = null;
+    let frogOutRaw: bigint | null = null;
 
     if (quoteData && Array.isArray(quoteData) && quoteData.length >= 2) {
         const out = quoteData[1] as bigint;
 
         if (out > BigInt(0)) {
+            frogOutRaw = out;
             frogOutFormatted = formatUnits(out, 18);
 
-            // 2% slippage buffer WITHOUT bigint literals
+            // 2% slippage buffer
             const ninetyEight = BigInt(98);
             const hundred = BigInt(100);
 
             minOutFromQuote = (out * ninetyEight) / hundred;
         }
     }
+
+    // derive FROG/USD from 1 SEI → FROG quote
+    useEffect(() => {
+        if (
+            !priceQuoteData ||
+            !Array.isArray(priceQuoteData) ||
+            priceQuoteData.length < 2
+        ) {
+            return;
+        }
+        if (seiUsdPrice === null) return;
+
+        const out = priceQuoteData[1] as bigint;
+        if (out <= BigInt(0)) return;
+
+        const frogsPerSei = Number(formatUnits(out, 18));
+        if (!Number.isFinite(frogsPerSei) || frogsPerSei <= 0) return;
+
+        const frogPrice = seiUsdPrice / frogsPerSei;
+        if (Number.isFinite(frogPrice) && frogPrice > 0) {
+            setFrogUsdPrice(frogPrice);
+        }
+    }, [priceQuoteData, seiUsdPrice]);
+
+    // To-side USD based on FROG amount * FROG/USD
+    const frogOutAmount =
+        frogOutFormatted && frogOutFormatted.length > 0
+            ? Number(frogOutFormatted)
+            : 0;
+
+    const toUsdValue =
+        frogUsdPrice !== null && frogOutAmount > 0
+            ? frogOutAmount * frogUsdPrice
+            : null;
 
     const wrongNetwork =
         !!address && chainId !== undefined && chainId !== SEI_EVM_CHAIN_ID;
@@ -244,8 +333,13 @@ export function SwapSection() {
                                     setAmount(e.target.value.trim());
                                 }}
                             />
-                            <div className="text-[11px] text-brand-subtle">
-                                Enter how much SEI you want to swap into $FROG.
+                            <div className="flex items-center justify-between text-[11px] text-brand-subtle">
+                                <span>Enter how much SEI to swap into $FROG.</span>
+                                {fromUsdValue !== null && formatUsd(fromUsdValue) && (
+                                    <span className="font-mono text-xs text-brand-text">
+                                        ≈ {formatUsd(fromUsdValue)}
+                                    </span>
+                                )}
                             </div>
                         </div>
 
@@ -260,15 +354,22 @@ export function SwapSection() {
                                     ? `${frogOutFormatted.slice(0, 12)} FROG`
                                     : "0.0 FROG"}
                             </button>
-                            <div className="text-[11px] text-brand-subtle">
-                                {amountInForQuote === null ? (
-                                    <>Output estimate depends on pool price and fees.</>
-                                ) : isQuoteLoading ? (
-                                    <>Fetching quote…</>
-                                ) : frogOutFormatted ? (
-                                    <>Estimated output before slippage.</>
-                                ) : (
-                                    <>No quote available for this amount.</>
+                            <div className="flex items-center justify-between text-[11px] text-brand-subtle">
+                                <span>
+                                    {amountInForQuote === null ? (
+                                        <>Output estimate depends on pool price and fees.</>
+                                    ) : isQuoteLoading ? (
+                                        <>Fetching quote…</>
+                                    ) : frogOutFormatted ? (
+                                        <>Estimated output with lowest slippage.</>
+                                    ) : (
+                                        <>No quote available for this amount.</>
+                                    )}
+                                </span>
+                                {toUsdValue !== null && formatUsd(toUsdValue) && (
+                                    <span className="font-mono text-xs text-brand-text">
+                                        ≈ {formatUsd(toUsdValue)}
+                                    </span>
                                 )}
                             </div>
                         </div>
@@ -280,20 +381,20 @@ export function SwapSection() {
                         onClick={handleSwap}
                         disabled={swapDisabled}
                         className={`mt-5 h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${swapDisabled
-                            ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle"
-                            : "bg-brand-primary text-black hover:scale-[1.01]"
+                                ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle"
+                                : "bg-brand-primary text-black hover:scale-[1.01]"
                             }`}
                     >
                         {swapLabel}
                     </button>
 
-                    <div className="mt-5 border-t border-white/10 pt-4" />
+                    <div className="mt-5 border-t border-white/10 pt-3" />
 
                     {/* Contract + copy */}
                     <div className="rounded-xl border border-white/10 p-3">
                         <div className="text-xs text-brand-subtle">Token contract</div>
                         <div className="mt-1 flex items-center gap-2">
-                            <code className="text-[10px] select-all break-all">
+                            <code className="text-[11px] select-all break-all">
                                 {ADDR.token}
                             </code>
                         </div>
