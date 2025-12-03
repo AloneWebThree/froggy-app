@@ -252,7 +252,7 @@ export function SwapSection() {
     }
 
     return (
-        <section id="swap" className="mx-auto max-w-6xl px-4 pb-14">
+        <section className="mx-auto max-w-6xl px-4 pb-14">
             <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
             <p className="mt-2 text-slate-300/90 text-sm leading-snug">
                 Swap SEI for $FROG directly from the dApp.
@@ -295,7 +295,7 @@ export function SwapSection() {
                 </div>
 
                 {/* Right: FroggySwap card */}
-                <div className="rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col h-auto md:h-[clamp(540px,70vh,680px)]">
+                <div id="swap" className="rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col h-auto md:h-[clamp(540px,70vh,680px)]">
                     <div className="flex items-center justify-between">
                         <div>
                             <div className="text-sm text-brand-subtle">Quick Action</div>
