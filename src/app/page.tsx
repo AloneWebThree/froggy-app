@@ -1,5 +1,3 @@
-"use client";
-
 import { brand } from "@/lib/brand";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FaqSection } from "@/components/landing/FaqSection";

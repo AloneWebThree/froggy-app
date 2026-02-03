@@ -41,23 +41,26 @@ export function SwapSection() {
 
     // fetch SEI → USD once
     useEffect(() => {
-        async function fetchSeiPrice() {
+        let cancelled = false;
+
+        async function load() {
             try {
-                const res = await fetch(
-                    "https://api.coingecko.com/api/v3/simple/price?ids=sei-network&vs_currencies=usd"
-                );
-                if (!res.ok) return;
-                const data = await res.json();
-                const price = data?.["sei-network"]?.usd;
-                if (typeof price === "number") {
-                    setSeiUsdPrice(price);
+                const r = await fetch("/api/sei-price");
+                if (!r.ok) return;
+                const j = await r.json();
+                const p = Number(j?.seiUsd);
+                if (!cancelled && Number.isFinite(p) && p > 0) {
+                    setSeiUsdPrice(p);
                 }
-            } catch (err) {
-                console.error("Failed to fetch SEI price", err);
+            } catch {
+                // keep null
             }
         }
 
-        fetchSeiPrice();
+        load();
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const formatUsd = (value: number) => {
