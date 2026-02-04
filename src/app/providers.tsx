@@ -11,12 +11,12 @@ import {
 } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { sei } from "@/lib/sei";
+import { sei, SEI_RPC_URL } from "@/lib/sei";
 
 // --- wagmi config: injected only (browser wallets) ---
 export const config = createConfig({
     chains: [sei],
-    transports: { [sei.id]: http("https://evm-rpc.sei-apis.com") },
+    transports: { [sei.id]: http(SEI_RPC_URL) },
     connectors: [
         injected({
             shimDisconnect: true,
