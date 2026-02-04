@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 
 import { ADDR } from "@/lib/froggyConfig";
@@ -9,9 +10,16 @@ import { brand } from "@/lib/brand";
 import froggySamurai from "@public/gallery/froggy-samurai.png";
 
 export function HeroSection() {
-    // Wallet connection state
     const { isConnected } = useAccount();
-    const dashboardEnabled = isConnected;
+
+    // HYDRATION FIX: treat as disconnected until after mount
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMounted(true);
+    }, []);
+
+    const dashboardEnabled = mounted && isConnected;
 
     return (
         <section id="home" className="relative">
@@ -29,12 +37,12 @@ export function HeroSection() {
                     </h1>
 
                     <p className="mt-4 text-brand-subtle max-w-prose">
-                        1B supply. Liquidity locked. Built for memes, investors, and long-term holders who
-                        actually stick around.
+                        1B supply. Liquidity locked. Built for memes, investors, and long-term holders who actually
+                        stick around.
                     </p>
                     <p className="mt-4 text-brand-subtle max-w-prose">
-                        Contract is immutable and finalized. Daily streaks and on-chain rewards are designed
-                        to favor holders who keep stacking FROG over time.
+                        Contract is immutable and finalized. Daily streaks and on-chain rewards are designed to favor
+                        holders who keep stacking FROG over time.
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-3">
@@ -45,23 +53,22 @@ export function HeroSection() {
                             Buy $FROG
                         </a>
 
-                        {/* Holder Dashboard — red when locked, brand secondary when wallet is connected */}
-                        {dashboardEnabled ? (
-                            <Link
-                                href="/dashboard"
-                                className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] cursor-pointer bg-brand-secondary text-brand-bg"
-                            >
-                                Dashboard
-                            </Link>
-                        ) : (
-                            <button
-                                type="button"
-                                disabled
-                                className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 cursor-not-allowed bg-[#e86a6a] opacity-40"
-                            >
-                                Dashboard
-                            </button>
-                        )}
+                        {/* Always render Link (stable markup). Block when locked. */}
+                        <Link
+                            href={dashboardEnabled ? "/dashboard" : "#"}
+                            aria-disabled={!dashboardEnabled}
+                            tabIndex={dashboardEnabled ? 0 : -1}
+                            onClick={(e) => {
+                                if (!dashboardEnabled) e.preventDefault();
+                            }}
+                            className={
+                                dashboardEnabled
+                                    ? "rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] cursor-pointer bg-brand-secondary text-brand-bg"
+                                    : "rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 cursor-not-allowed bg-[#e86a6a] opacity-40"
+                            }
+                        >
+                            Dashboard
+                        </Link>
                     </div>
 
                     <p className="mt-2 text-[11px] text-brand-subtle">
@@ -76,12 +83,10 @@ export function HeroSection() {
                 {/* Mascot card */}
                 <div className="relative">
                     <div className="froggy-breathe relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
-                        {/* subtle inner glow */}
                         <div
                             className="absolute inset-0 pointer-events-none opacity-[0.12]"
                             style={{
-                                background:
-                                    "radial-gradient(60% 60% at 50% 40%, #6eb819 0%, transparent 70%)",
+                                background: "radial-gradient(60% 60% at 50% 40%, #6eb819 0%, transparent 70%)",
                             }}
                         />
 
