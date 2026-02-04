@@ -36,12 +36,12 @@ export function TokenSection() {
                     { k: "Tax", v: "0%", d: "Zero on buys and sells." },
                     {
                         k: "Liquidity",
-                        v: "Locked",
+                        v: "Locked on Bond",
                         d: "Verified on-chain and permanent.",
                     },
                     {
                         k: "Holders",
-                        v: "1,300+ Holders",
+                        v: "1,500+ Holders",
                         d: "View holder data on Sei Explorer.",
                         link: "https://seitrace.com/token/0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9?chain=pacific-1&tab=holders",
                     },

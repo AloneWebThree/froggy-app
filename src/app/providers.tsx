@@ -1,7 +1,7 @@
 // app/providers.tsx
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
     WagmiProvider,
     createConfig,
@@ -40,15 +40,38 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 
 // --- reusable wallet button (desktop + mobile) ---
+// --- reusable wallet button (desktop + mobile) ---
 export function WalletButton() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
 
+    // HYDRATION FIX: don't trust wagmi connection state until after mount
+    // HYDRATION FIX: don't trust wagmi connection state until after mount
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMounted(true);
+    }, []);
+
     const injectedConnector = connectors.find((c) => c.id === "injected");
 
     const shortAddr = (addr?: string) =>
         addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "";
+
+    // IMPORTANT: before mounted, force the same UI as SSR (looks disconnected)
+    if (!mounted) {
+        return (
+            <button
+                type="button"
+                disabled
+                className="rounded-xl px-4 py-2 text-sm font-semibold bg-brand-primary text-[#081318] hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50 disabled:opacity-60"
+            >
+                Connect Wallet
+            </button>
+        );
+    }
 
     // Not connected: single browser-wallet button
     if (!isConnected) {
@@ -75,3 +98,4 @@ export function WalletButton() {
         </button>
     );
 }
+
