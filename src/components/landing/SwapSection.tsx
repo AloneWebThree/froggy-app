@@ -351,7 +351,7 @@ export function SwapSection() {
           </div>
 
           {/* Scrollable body so card height always matches chart */}
-          <div className="mt-4 flex-1 overflow-auto pr-1">
+            <div className="mt-4 flex-1 overflow-y-auto overflow-x-hidden pr-4">
             <div className="space-y-4">
               {/* From SEI */}
               <div className="grid gap-2">
@@ -362,7 +362,7 @@ export function SwapSection() {
                 <input
                   inputMode="decimal"
                   placeholder="0.0"
-                  className="h-11 w-full rounded-xl bg-black/20 px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                  className="h-11 w-full box-border rounded-xl bg-black/20 px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value.trim())}
                 />
