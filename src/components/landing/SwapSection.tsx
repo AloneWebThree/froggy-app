@@ -76,28 +76,34 @@ export function SwapSection() {
   const [seiUsdPrice, setSeiUsdPrice] = useState<number | null>(null);
   const [frogUsdPrice, setFrogUsdPrice] = useState<number | null>(null);
 
-  // fetch SEI → USD once
+  // fetch SEI → USD (refresh)
   useEffect(() => {
-    let cancelled = false;
+      let cancelled = false;
 
-    async function load() {
-      try {
-        const r = await fetch("/api/sei-price");
-        if (!r.ok) return;
-        const j = await r.json();
-        const p = Number(j?.seiUsd);
-        if (!cancelled && Number.isFinite(p) && p > 0) {
-          setSeiUsdPrice(p);
-        }
-      } catch {
-        // keep null
+      async function load() {
+          try {
+              // cache:"no-store" prevents the browser from serving a cached response
+              const r = await fetch("/api/sei-price", { cache: "no-store" });
+              if (!r.ok) return;
+
+              const j = await r.json();
+              const p = Number(j?.seiUsd);
+
+              if (!cancelled && Number.isFinite(p) && p > 0) {
+                  setSeiUsdPrice(p);
+              }
+          } catch {
+              // keep last good price
+          }
       }
-    }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
+      load();
+      const id = window.setInterval(load, 30_000); // every 30s
+
+      return () => {
+          cancelled = true;
+          window.clearInterval(id);
+      };
   }, []);
 
   const formatUsd = (value: number) => {
