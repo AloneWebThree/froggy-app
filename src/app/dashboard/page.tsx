@@ -100,7 +100,11 @@ export default function DashboardPage() {
 
     const lastCheckInSummary = useMemo(() => {
         if (isLoadingUser || wrongNetwork) return "";
-        if (lastCheckInDay === null || currentUtcDay === null || totalCheckIns === 0) {
+        if (
+            lastCheckInDay === null ||
+            currentUtcDay === null ||
+            totalCheckIns === 0
+        ) {
             return "No check-ins yet.";
         }
 
@@ -114,59 +118,28 @@ export default function DashboardPage() {
         return "Last check-in: recently.";
     }, [isLoadingUser, wrongNetwork, lastCheckInDay, currentUtcDay, totalCheckIns]);
 
-    const historyWindow = useMemo(
-        () => {
-            // Need real data + a known "today"
-            if (
-                currentUtcDay === null ||
-                lastCheckInDay === null ||
-                totalCheckIns === 0
-            ) {
-                return [] as {
-                    dayIndex: number;
-                    label: string;
-                    status: "checked" | "missed";
-                }[];
-            }
+    // ===== Milestone badges (replaces streak history) =====
+    const milestoneBadges = useMemo(() => {
+        const milestones = [7, 14, 21, 30, 60, 90];
 
-            // Streak days run from streakStartDay → lastCheckInDay (inclusive)
-            const streakStartDay =
-                currentStreak > 0 ? lastCheckInDay - (currentStreak - 1) : null;
+        return milestones.map((m) => {
+            const earned = bestStreak >= m;
 
-            const days: {
-                dayIndex: number;
-                label: string;
-                status: "checked" | "missed";
-            }[] = [];
+            // progress is based on current streak (so it feels "live"),
+            // but earning is based on best streak (so badges don't disappear)
+            const progress = earned
+                ? 1
+                : currentStreak > 0
+                    ? Math.min(currentStreak / m, 1)
+                    : 0;
 
-            // Build a 7-day window ending today (oldest → newest)
-            for (let offset = 6; offset >= 0; offset--) {
-                const dayIndex = currentUtcDay - offset;
-                const diff = currentUtcDay - dayIndex;
-
-                let label: string;
-                if (diff === 0) label = "Today";
-                else if (diff === 1) label = "Yesterday";
-                else label = `${diff}d ago`;
-
-                let status: "checked" | "missed" = "missed";
-
-                if (
-                    streakStartDay !== null &&
-                    dayIndex >= streakStartDay &&
-                    dayIndex <= lastCheckInDay
-                ) {
-                    status = "checked";
-                }
-
-                days.push({ dayIndex, label, status });
-            }
-
-            return days;
-        },
-        [currentUtcDay, lastCheckInDay, currentStreak, totalCheckIns],
-    );
-
+            return {
+                days: m,
+                earned,
+                progress, // 0..1
+            };
+        });
+    }, [bestStreak, currentStreak]);
 
     const streakStatus = useMemo(
         () =>
@@ -183,26 +156,22 @@ export default function DashboardPage() {
     );
 
     // ===== READ: FROG token balance =====
-    const {
-        data: frogBalanceRaw,
-        isLoading: isLoadingBalance,
-    } = useReadContract({
-        address: FROG_TOKEN_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [address ?? ZERO_ADDRESS],
-        query: { enabled: !!address && !wrongNetwork },
-    });
+    const { data: frogBalanceRaw, isLoading: isLoadingBalance } =
+        useReadContract({
+            address: FROG_TOKEN_ADDRESS,
+            abi: ERC20_ABI,
+            functionName: "balanceOf",
+            args: [address ?? ZERO_ADDRESS],
+            query: { enabled: !!address && !wrongNetwork },
+        });
 
-    const {
-        data: frogDecimalsRaw,
-        isLoading: isLoadingDecimals,
-    } = useReadContract({
-        address: FROG_TOKEN_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "decimals",
-        args: [],
-    });
+    const { data: frogDecimalsRaw, isLoading: isLoadingDecimals } =
+        useReadContract({
+            address: FROG_TOKEN_ADDRESS,
+            abi: ERC20_ABI,
+            functionName: "decimals",
+            args: [],
+        });
 
     const isBalanceLoading = isLoadingBalance || isLoadingDecimals;
 
@@ -217,7 +186,6 @@ export default function DashboardPage() {
         try {
             return Number(formatUnits(frogBalanceRaw as bigint, decimals));
         } catch {
-            // Fallback – should basically never hit
             return 0;
         }
     }, [frogBalanceRaw, frogDecimalsRaw]);
@@ -230,18 +198,13 @@ export default function DashboardPage() {
     }, [frogBalanceRaw, lastRecordedBalance]);
 
     // ===== WRITE: checkIn() =====
-    const {
-        data: txHash,
-        writeContract,
-        isPending: isCheckInPending,
-    } = useWriteContract();
+    const { data: txHash, writeContract, isPending: isCheckInPending } =
+        useWriteContract();
 
-    const {
-        isLoading: isConfirmingTx,
-        isSuccess: isTxConfirmed,
-    } = useWaitForTransactionReceipt({
-        hash: txHash,
-    });
+    const { isLoading: isConfirmingTx, isSuccess: isTxConfirmed } =
+        useWaitForTransactionReceipt({
+            hash: txHash,
+        });
 
     // After confirmed check-in tx, refetch streak state
     useEffect(() => {
@@ -277,20 +240,17 @@ export default function DashboardPage() {
         isCheckInPending ||
         isConfirmingTx ||
         hasCheckedInToday ||
-        frogBalanceRaw == null ||            // NEW: don’t even try if no balance available
+        frogBalanceRaw == null ||
         !hasIncreasedBalance;
 
     const checkInLabel = useMemo(() => {
         if (!isConnected) return "Connect wallet to check in";
         if (wrongNetwork) return "Switch to Sei EVM";
         if (isBalanceLoading) return "Loading balance…";
-
         if (frogBalanceRaw == null) return "Cannot load balance…";
-
         if (isCheckInPending || isConfirmingTx) return "Checking in...";
         if (hasCheckedInToday) return "Checked in ✓";
         if (!hasIncreasedBalance) return "Increase your FROG balance to check in";
-
         return "Check in";
     }, [
         isConnected,
@@ -314,6 +274,7 @@ export default function DashboardPage() {
             return "bg-brand-primary/40 text-black/60 animate-pulse";
         }
         if (frogBalanceRaw == null) {
+            // If bg-yellow-250 isn't in your Tailwind theme, replace with bg-yellow-300 (or your preferred token).
             return "bg-yellow-250 text-black hover:bg-yellow-250";
         }
         if (isCheckInPending || isConfirmingTx) {
@@ -358,7 +319,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* Mobile wallet button (single CTA on small screens) */}
+                {/* Mobile wallet button */}
                 <div className="mt-4 md:hidden">
                     <WalletButton />
                 </div>
@@ -386,7 +347,6 @@ export default function DashboardPage() {
                             </span>
                         </div>
 
-                        {/* Extra CTA on desktop only (no duplicate on mobile) */}
                         <div className="mt-5 hidden md:block">
                             <WalletButton />
                         </div>
@@ -406,7 +366,6 @@ export default function DashboardPage() {
                                     </h2>
 
                                     <div className="flex items-center gap-2">
-                                        {/* FAQ BUTTON */}
                                         <Link
                                             href="/dashboard/faq"
                                             className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-white/10 transition"
@@ -414,7 +373,6 @@ export default function DashboardPage() {
                                             FAQ
                                         </Link>
 
-                                        {/* NETWORK BADGE */}
                                         <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-brand-subtle border border-white/10">
                                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                                             {isOnSeiEvm
@@ -584,7 +542,7 @@ export default function DashboardPage() {
                             </div>
                         </section>
 
-                        {/* Actions: check-in + claim */}
+                        {/* Actions: check-in + milestones + claim */}
                         <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/80 p-6 space-y-5 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(0,0,0,0.5)]">
                             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div>
@@ -614,78 +572,75 @@ export default function DashboardPage() {
                                     </button>
                                 </div>
                             </div>
-                            {/* Streak history (last 7 days preview) */}
-                            <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
+
+                            {/* Milestone badges (replaces streak history) */}
+                            <section className="mt-2 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <h2 className="text-lg font-semibold">Streak history</h2>
+                                        <h2 className="text-lg font-semibold">Milestone badges</h2>
                                         <p className="mt-1 text-xs text-brand-subtle leading-tight">
-                                            Snapshot of your last 7 days based on on-chain check-ins.
+                                            Earn badges when your <span className="text-brand-text">best streak</span>{" "}
+                                            hits each milestone. Progress fills based on your current streak.
                                         </p>
                                     </div>
 
-                                    <div className="hidden sm:flex items-center gap-3 text-[11px] text-brand-subtle">
-                                        <span className="inline-flex items-center gap-1">
-                                            <span className="h-2 w-2 rounded-full bg-[#6EB819]" />
-                                            <span>Checked in</span>
-                                        </span>
-                                        <span className="inline-flex items-center gap-1">
-                                            <span className="h-2 w-2 rounded-full bg-white/15" />
-                                            <span>Missed / no activity</span>
-                                        </span>
-                                    </div>
+                                    <span className="hidden sm:inline-flex items-center rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-medium text-brand-subtle border border-white/10">
+                                        {isLoadingUser || wrongNetwork
+                                            ? "Loading…"
+                                            : `Best: ${bestStreak}d`}
+                                    </span>
                                 </div>
 
-                                {historyWindow.length === 0 || wrongNetwork || isLoadingUser ? (
+                                {(wrongNetwork || isLoadingUser) ? (
                                     <p className="mt-4 text-xs text-brand-subtle leading-tight">
-                                        Once you start checking in on Sei EVM, your recent 7-day pattern will show up here.
+                                        Connect on Sei EVM to view badge progress.
                                     </p>
                                 ) : (
-                                    <div className="mt-4 flex flex-col gap-3">
-                                        <div className="flex flex-wrap justify-center gap-x-2.5 gap-y-3">
-                                            {historyWindow.map((day) => {
-                                                const isToday =
-                                                    currentUtcDay !== null && day.dayIndex === currentUtcDay;
+                                    <>
+                                        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                                            {milestoneBadges.map((b) => {
+                                                const tone = b.earned
+                                                    ? "border-brand-primary/40 bg-brand-primary/10 text-brand-text"
+                                                    : "border-white/10 bg-black/10 text-brand-subtle";
 
                                                 return (
                                                     <div
-                                                        key={day.dayIndex}
-                                                        className={[
-                                                            "flex flex-col items-center justify-center",
-                                                            "rounded-xl border px-3 py-2.5 min-w-[72px] text-center",
-                                                            "border-white/5 bg-transparent",
-                                                            isToday ? "border-white/15 bg-white/[0.03]" : "",
-                                                        ].join(" ")}
+                                                        key={b.days}
+                                                        className={`rounded-xl border p-3 text-center ${tone}`}
                                                     >
-                                                        <span
-                                                            className={[
-                                                                "mb-1 rounded-full h-2 w-2",
-                                                                day.status === "checked"
-                                                                    ? "bg-[#6EB819]"
-                                                                    : "bg-white/15",
-                                                            ].join(" ")}
-                                                        />
-                                                        <span
-                                                            className={[
-                                                                "text-[11px] font-medium",
-                                                                isToday ? "text-brand-text" : "text-brand-text/90",
-                                                            ].join(" ")}
-                                                        >
-                                                            {day.label}
-                                                        </span>
-                                                        <span className="mt-0.5 text-[10px] text-brand-subtle">
-                                                            {day.status === "checked" ? "Checked in" : "No check-in"}
-                                                        </span>
+                                                        <div className="text-[11px] uppercase tracking-wide opacity-80">
+                                                            {b.earned ? "Unlocked" : "Locked"}
+                                                        </div>
+
+                                                        <div className="mt-1 text-lg font-bold">
+                                                            {b.days}d
+                                                        </div>
+
+                                                        <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-full bg-brand-primary"
+                                                                style={{
+                                                                    width: `${Math.round(b.progress * 100)}%`,
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        <div className="mt-1 text-[10px] text-brand-subtle">
+                                                            {b.earned
+                                                                ? "Earned"
+                                                                : currentStreak > 0
+                                                                    ? `${Math.min(currentStreak, b.days)}/${b.days}`
+                                                                    : "Start a streak"}
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
                                         </div>
 
-                                        <p className="text-[11px] text-brand-subtle/80 leading-tight">
-                                            Streaks reset when you miss a day. The green dots show the continuous run
-                                            that built your current streak.
+                                        <p className="mt-3 text-[11px] text-brand-subtle/80 leading-tight">
+                                            Badges don’t disappear if you miss a day—once earned, you keep them.
                                         </p>
-                                    </div>
+                                    </>
                                 )}
                             </section>
 
@@ -713,6 +668,7 @@ export default function DashboardPage() {
                                 </button>
                             </div>
                         </section>
+
                         {/* Market snapshot */}
                         <section className="mt-8 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
                             <div className="flex items-center justify-between gap-3 mb-2">
