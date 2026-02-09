@@ -202,7 +202,7 @@ export function SwapSection() {
     return "Swap now";
   }, [mounted, hasAddress, wrongNetwork, amountIn, quote.isLoading, isPending, isConfirming]);
 
-  const helpLine = "Swaps route through Sei EVM (DragonSwap V2).";
+  const helpLine = "Swaps route through Sei EVM";
   const panelHeight = "h-[clamp(540px,70vh,680px)] min-h-[520px]";
 
   return (
