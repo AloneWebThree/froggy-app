@@ -417,6 +417,7 @@ export function SwapSection() {
                     pushError("Route not configured.");
                     return;
                 }
+
                 await writeContractAsync({
                     address: DRAGON_V3_SWAPROUTER02 as Address,
                     abi: V3_SWAPROUTER02_ABI as unknown as Abi,
@@ -431,7 +432,11 @@ export function SwapSection() {
                         },
                     ],
                     value: amountIn,
+
+                    // Force a sane gas limit so Rabby doesn't simulate with 0
+                    gas: 800000n,
                 });
+
                 return;
             }
         } catch (err: unknown) {
