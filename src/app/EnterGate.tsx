@@ -14,7 +14,8 @@ export default function EnterGate() {
 
         const seen = window.sessionStorage.getItem(SESSION_KEY);
         if (!seen) {
-            setShow(true);
+            const id = requestAnimationFrame(() => setShow(true));
+            return () => cancelAnimationFrame(id);
         }
     }, []);
 

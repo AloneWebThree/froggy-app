@@ -74,16 +74,18 @@ export function GallerySection() {
 
     const startX = useRef<number | null>(null);
 
-    const onTouchStart = (e: any) => {
-        if (!e.touches || e.touches.length === 0) return;
+    const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (e.touches.length === 0) return;
         startX.current = e.touches[0].clientX;
     };
 
-    const onTouchEnd = (e: any) => {
-        if (startX.current == null || !e.changedTouches || e.changedTouches.length === 0) return;
+    const onTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (startX.current == null || e.changedTouches.length === 0) return;
         const dx = e.changedTouches[0].clientX - startX.current;
+
         if (dx > 40) setActiveIndex((i) => (i - 1 + galleryItems.length) % galleryItems.length);
         if (dx < -40) setActiveIndex((i) => (i + 1) % galleryItems.length);
+
         startX.current = null;
     };
 

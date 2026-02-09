@@ -1,14 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
-import {
-    WagmiProvider,
-    createConfig,
-    http,
-    useAccount,
-    useConnect,
-    useDisconnect,
-} from "wagmi";
+import { ReactNode, useEffect, useMemo, useState } from "react";
+import { WagmiProvider, createConfig, http, useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { sei, SEI_RPC_URL } from "@/lib/sei";
@@ -24,16 +17,23 @@ export const config = createConfig({
     ],
 });
 
-// --- react-query client ---
-const queryClient = new QueryClient();
+// Create ONE client instance for the whole app lifecycle.
+// Avoids cache resets on remount / hot reload.
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 30_000,
+            gcTime: 5 * 60_000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+        },
+    },
+});
 
-// --- top-level providers wrapper ---
 export function Providers({ children }: { children: ReactNode }) {
     return (
         <WagmiProvider config={config}>
-            <QueryClientProvider client={queryClient}>
-                {children}
-            </QueryClientProvider>
+            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         </WagmiProvider>
     );
 }
@@ -47,14 +47,16 @@ export function WalletButton() {
     // Hydration-safe mount gate
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setMounted(true);
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
     }, []);
 
-    const injectedConnector = connectors.find((c) => c.id === "injected");
+    const injectedConnector = useMemo(
+        () => connectors.find((c) => c.id === "injected"),
+        [connectors]
+    );
 
-    const shortAddr = (addr?: string) =>
-        addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "";
+    const shortAddr = (addr?: string) => (addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "");
 
     // BEFORE mount: force the “disconnected” UI so SSR === first client render
     if (!mounted) {
