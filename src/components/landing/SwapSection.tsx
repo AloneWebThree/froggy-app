@@ -5,7 +5,6 @@ import Image from "next/image";
 import {
     type Address,
     type Abi,
-    formatUnits,
     parseUnits,
     maxUint256,
 } from "viem";
@@ -49,7 +48,7 @@ import {
     DRAGON_V3_SWAPROUTER02,
 } from "@/lib/swap/tokens";
 
-type FromSymbol = "SEI" | "USDY";
+type FromSymbol = "SEI" | "WSEI" | "USDY";
 type ToSymbol = "FROG" | "USDY";
 
 type UnknownErr = { shortMessage?: string; message?: string };
@@ -133,8 +132,7 @@ function toBigIntAmount(input: string, decimals = 18): bigint | null {
 
     try {
         const units = parseUnits(cleaned, decimals);
-        if (units <= 0n) return null;
-        return units;
+        return units > 0n ? units : null;
     } catch {
         return null;
     }
@@ -179,51 +177,47 @@ export function SwapSection() {
 
     // Amount parsing
     const parsedSei = parseSeiInput(amount);
-    const amountIn = fromSymbol === "SEI" ? parsedSei.units : toBigIntAmount(amount, 18);
-    const amountInNumber =
-        fromSymbol === "SEI" ? parsedSei.number : Number(amount.trim().replace(",", ".")) || 0;
 
+    const amountIn: bigint | null =
+        fromSymbol === "SEI" ? parsedSei.units : toBigIntAmount(amount, 18);
+
+    const amountInNumber =
+        fromSymbol === "SEI"
+            ? parsedSei.number
+            : Number(amount.trim().replace(",", ".")) || 0;
+
+    // From-side USD estimate
     const fromUsdValue =
-        fromSymbol === "SEI" && seiUsdPrice !== null && amountInNumber > 0
+        (fromSymbol === "SEI" || fromSymbol === "WSEI") &&
+            seiUsdPrice !== null &&
+            amountInNumber > 0
             ? amountInNumber * seiUsdPrice
             : null;
 
-    // Route selection
+    // Routes
     const routeKind = useMemo(() => {
-        // V2 native
         if (fromSymbol === "SEI" && toSymbol === "FROG") return "v2-native" as const;
-
-        // V3 native (optional): SEI -> USDY
-        if (fromSymbol === "SEI" && toSymbol === "USDY") return "v3-native" as const;
-
-        // V2 ERC20: USDY -> FROG (NEW, via your V2 USDY/FROG pool)
         if (fromSymbol === "USDY" && toSymbol === "FROG") return "v2-erc20" as const;
-
+        if (fromSymbol === "WSEI" && toSymbol === "USDY") return "v3-erc20" as const;
         return "unsupported" as const;
     }, [fromSymbol, toSymbol]);
 
-    // Dynamic V2 path
+    // V2 path (dynamic)
     const v2Path: Address[] = useMemo(() => {
-        // SEI -> FROG quotes on v2 use WSEI->FROG
-        if (fromSymbol === "SEI" && toSymbol === "FROG") {
-            return [WSEI_ADDRESS as Address, ADDR.token as Address];
-        }
-
-        // USDY -> FROG direct pool you created
         if (fromSymbol === "USDY" && toSymbol === "FROG") {
             return [USDY_ADDRESS as Address, ADDR.token as Address];
         }
-
-        // fallback (won’t be used)
+        // SEI -> FROG uses WSEI->FROG internally
         return [WSEI_ADDRESS as Address, ADDR.token as Address];
     }, [fromSymbol, toSymbol]);
 
-    // V3 path bytes for SEI -> USDY (native)
+    // V3 path bytes (WSEI -> USDC -> USDY)
     const v3PathBytes = useMemo(() => {
-        if (routeKind !== "v3-native") return null;
+        if (routeKind !== "v3-erc20") return null;
         try {
             return encodeV3Path({
                 tokens: [WSEI_ADDRESS as Address, USDC_ADDRESS as Address, USDY_ADDRESS as Address],
+                // keep your current known working tiers; adjust if you later confirm 100/100
                 fees: [3000, 100],
             }) as `0x${string}`;
         } catch {
@@ -250,18 +244,18 @@ export function SwapSection() {
     });
 
     const quote = useMemo(() => {
+        if (routeKind === "v3-erc20") {
+            return {
+                isLoading: v3Quote.isLoading,
+                outFormatted: v3Quote.outFormatted,
+                minOut: v3Quote.minOut,
+            };
+        }
         if (routeKind === "v2-native" || routeKind === "v2-erc20") {
             return {
                 isLoading: v2Quote.isLoading,
                 outFormatted: v2Quote.outFormatted,
                 minOut: v2Quote.minOut,
-            };
-        }
-        if (routeKind === "v3-native") {
-            return {
-                isLoading: v3Quote.isLoading,
-                outFormatted: v3Quote.outFormatted,
-                minOut: v3Quote.minOut,
             };
         }
         return {
@@ -305,18 +299,30 @@ export function SwapSection() {
     const toUsdValue =
         toUsdUnitPrice !== null && tokenOutAmount > 0 ? tokenOutAmount * toUsdUnitPrice : null;
 
-    // Approvals for USDY->FROG
+    // Approval token (USDY for V2, WSEI for V3)
     const approvalToken = useMemo(() => {
-        if (routeKind !== "v2-erc20") return null;
-        if (fromSymbol === "USDY") {
+        if (!amountIn) return null;
+
+        if (routeKind === "v2-erc20") {
+            // USDY -> FROG uses V2 router
             return {
                 symbol: "USDY" as const,
                 addr: USDY_ADDRESS as Address,
                 spender: DRAGON_ROUTER_ADDRESS as Address,
             };
         }
+
+        if (routeKind === "v3-erc20") {
+            // WSEI -> USDY uses V3 SwapRouter02
+            return {
+                symbol: "WSEI" as const,
+                addr: WSEI_ADDRESS as Address,
+                spender: DRAGON_V3_SWAPROUTER02 as Address,
+            };
+        }
+
         return null;
-    }, [routeKind, fromSymbol]);
+    }, [routeKind, amountIn]);
 
     const { data: allowanceData } = useReadContract({
         address: approvalToken?.addr,
@@ -350,6 +356,7 @@ export function SwapSection() {
 
     const approveIfNeeded = useCallback(async () => {
         if (!approvalToken || !address) return;
+
         try {
             setErrorToastMessage(undefined);
             await writeContractAsync({
@@ -368,12 +375,12 @@ export function SwapSection() {
         if (!amountIn) return;
 
         if (routeKind === "unsupported") {
-            pushError("That route isn’t supported in this dApp.");
+            pushError("That route isn’t supported.");
             return;
         }
 
-        // Approve first for USDY->FROG
-        if (routeKind === "v2-erc20" && !isApproved) {
+        // Approve first for token-in routes
+        if ((routeKind === "v2-erc20" || routeKind === "v3-erc20") && !isApproved) {
             await approveIfNeeded();
             return;
         }
@@ -401,7 +408,7 @@ export function SwapSection() {
             }
 
             if (routeKind === "v2-erc20") {
-                // USDY -> FROG (direct V2 pool)
+                // USDY -> FROG
                 await writeContractAsync({
                     address: DRAGON_ROUTER_ADDRESS as Address,
                     abi: DRAGON_ROUTER_ABI as unknown as Abi,
@@ -411,16 +418,10 @@ export function SwapSection() {
                 return;
             }
 
-            if (routeKind === "v3-native") {
-                // SEI -> USDY (native exactInput)
+            if (routeKind === "v3-erc20") {
+                // WSEI -> USDY (ERC20 in; NO msg.value)
                 if (!v3PathBytes) {
                     pushError("Route not configured.");
-                    return;
-                }
-
-                // NOTE: use v3Quote.minOut explicitly (not the generic quote object)
-                if (!v3Quote.minOut) {
-                    pushError("No quote available for this amount.");
                     return;
                 }
 
@@ -434,13 +435,10 @@ export function SwapSection() {
                             recipient: address as Address,
                             deadline,
                             amountIn,
-                            amountOutMinimum: v3Quote.minOut,
+                            amountOutMinimum: quote.minOut,
                         },
                     ],
-                    value: amountIn,
-
-                    // Force gas so Rabby doesn't try/fail to estimate and set it to 0
-                    gas: 900000n,
+                    value: 0n,
                 });
 
                 return;
@@ -449,27 +447,29 @@ export function SwapSection() {
             pushError(errToMessage(err, "Transaction was rejected or failed."));
         }
     }, [
-        address,
-        amountIn,
-        approveIfNeeded,
-        isApproved,
         mounted,
-        pushError,
-        quote.minOut,
+        address,
+        wrongNetwork,
+        amountIn,
         routeKind,
+        isApproved,
+        approveIfNeeded,
+        quote.minOut,
         v2Path,
         v3PathBytes,
-        wrongNetwork,
         writeContractAsync,
+        pushError,
     ]);
 
-    const missingV3Path = routeKind === "v3-native" && !v3PathBytes;
+    // Disable rules
+    const missingV3Path = routeKind === "v3-erc20" && !v3PathBytes;
 
     const swapDisabled =
         !mounted ||
         !hasAddress ||
         wrongNetwork ||
         !amountIn ||
+        !quote.minOut ||
         quote.isLoading ||
         isPending ||
         isConfirming ||
@@ -484,27 +484,33 @@ export function SwapSection() {
         if (!amountIn) return "Enter amount";
         if (missingV3Path) return "Route not configured";
         if (quote.isLoading) return "Fetching quote…";
-        if (routeKind === "v2-erc20" && !isApproved && approvalToken) return `Approve ${approvalToken.symbol}`;
+        if ((routeKind === "v2-erc20" || routeKind === "v3-erc20") && !isApproved && approvalToken) {
+            return `Approve ${approvalToken.symbol}`;
+        }
         if (isPending || isConfirming) return "Processing…";
         return "Swap now";
     }, [
-        amountIn,
-        approvalToken,
-        hasAddress,
-        isApproved,
-        isConfirming,
-        isPending,
-        missingV3Path,
         mounted,
-        quote.isLoading,
-        routeKind,
+        hasAddress,
         wrongNetwork,
+        routeKind,
+        amountIn,
+        missingV3Path,
+        quote.isLoading,
+        isApproved,
+        approvalToken,
+        isPending,
+        isConfirming,
     ]);
 
     // Keep To options sane when From changes
     useEffect(() => {
         if (fromSymbol === "SEI") {
-            if (toSymbol !== "FROG" && toSymbol !== "USDY") setToSymbol("FROG");
+            if (toSymbol !== "FROG") setToSymbol("FROG");
+            return;
+        }
+        if (fromSymbol === "WSEI") {
+            if (toSymbol !== "USDY") setToSymbol("USDY");
             return;
         }
         if (fromSymbol === "USDY") {
@@ -514,9 +520,10 @@ export function SwapSection() {
     }, [fromSymbol, toSymbol]);
 
     const helpLine = useMemo(() => {
-        if (routeKind === "v2-erc20" && approvalToken) return `${approvalToken.symbol} swap requires a one-time approval.`;
+        if (routeKind === "v3-erc20") return "V3 swaps require WSEI (approve once).";
+        if (routeKind === "v2-erc20") return "USDY swaps require approval (once).";
         return "Swaps route through Sei EVM.";
-    }, [routeKind, approvalToken]);
+    }, [routeKind]);
 
     const panelHeight = "h-[clamp(540px,70vh,680px)] min-h-[520px]";
 
@@ -527,7 +534,6 @@ export function SwapSection() {
                 Swap tokens directly from the dApp.
             </p>
 
-            {/* CHANGE #1: widen right column */}
             <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1.15fr] md:items-stretch">
                 {/* Left: chart */}
                 <div className={`rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}>
@@ -585,7 +591,6 @@ export function SwapSection() {
                         />
                     </div>
 
-                    {/* CHANGE #2: add padding + stable gutter so scrollbar doesn't overlap */}
                     <div
                         className="mt-4 flex-1 overflow-y-auto overflow-x-hidden pr-4"
                         style={{ scrollbarGutter: "stable" }}
@@ -601,6 +606,7 @@ export function SwapSection() {
                                         className="h-11 w-full rounded-xl bg-black/20 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                                     >
                                         <option value="SEI">SEI</option>
+                                        <option value="WSEI">WSEI</option>
                                         <option value="USDY">USDY</option>
                                     </select>
                                 </div>
@@ -612,16 +618,9 @@ export function SwapSection() {
                                         onChange={(e) => setToSymbol(e.currentTarget.value as ToSymbol)}
                                         className="h-11 w-full rounded-xl bg-black/20 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                                     >
-                                        {fromSymbol === "SEI" ? (
-                                            <>
-                                                <option value="FROG">FROG</option>
-                                                <option value="USDY">USDY</option>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <option value="FROG">FROG</option>
-                                            </>
-                                        )}
+                                        {fromSymbol === "SEI" && <option value="FROG">FROG</option>}
+                                        {fromSymbol === "WSEI" && <option value="USDY">USDY</option>}
+                                        {fromSymbol === "USDY" && <option value="FROG">FROG</option>}
                                     </select>
                                 </div>
                             </div>
