@@ -1,4 +1,4 @@
-﻿import { parseUnits } from "viem";
+import { parseUnits } from "viem";
 
 export function parseSeiInput(input: string): {
   raw: string;

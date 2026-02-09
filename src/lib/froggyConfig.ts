@@ -1,4 +1,4 @@
-﻿// src/lib/froggyConfig.ts
+// src/lib/froggyConfig.ts
 
 // ===== Chain constants =====
 export const SEI_EVM_CHAIN_ID = 1329 as const; // Sei EVM mainnet

@@ -1,4 +1,4 @@
-﻿import type { Address } from "viem";
+import type { Address } from "viem";
 
 // Tokens
 export const USDC_ADDRESS =
