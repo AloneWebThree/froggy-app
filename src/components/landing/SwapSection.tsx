@@ -418,6 +418,12 @@ export function SwapSection() {
                     return;
                 }
 
+                // NOTE: use v3Quote.minOut explicitly (not the generic quote object)
+                if (!v3Quote.minOut) {
+                    pushError("No quote available for this amount.");
+                    return;
+                }
+
                 await writeContractAsync({
                     address: DRAGON_V3_SWAPROUTER02 as Address,
                     abi: V3_SWAPROUTER02_ABI as unknown as Abi,
@@ -428,13 +434,13 @@ export function SwapSection() {
                             recipient: address as Address,
                             deadline,
                             amountIn,
-                            amountOutMinimum: quote.minOut,
+                            amountOutMinimum: v3Quote.minOut,
                         },
                     ],
                     value: amountIn,
 
-                    // Force a sane gas limit so Rabby doesn't simulate with 0
-                    gas: 800000n,
+                    // Force gas so Rabby doesn't try/fail to estimate and set it to 0
+                    gas: 900000n,
                 });
 
                 return;
