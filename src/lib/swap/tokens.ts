@@ -42,6 +42,6 @@ export const SWAP_TOKENS: readonly SwapToken[] = [
     decimals: 18,
     kind: "v3",
     v3Tokens: [WSEI_ADDRESS as Address, USDC_ADDRESS, USDY_ADDRESS],
-    v3Fees: [3000, 100],
+    v3Fees: [100, 100],
   },
 ] as const;
