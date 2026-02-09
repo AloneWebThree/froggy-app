@@ -28,9 +28,7 @@ const SWAP_ROUTER02_ABI = [
 
 type UnknownErr = { shortMessage?: string; message?: string };
 
-export function useSwapExecutionV3(params: {
-  swapRouter02: Address;
-}) {
+export function useSwapExecutionV3(params: { swapRouter02: Address }) {
   const { swapRouter02 } = params;
 
   const { writeContractAsync, data: txHash, isPending } = useWriteContract();
@@ -39,12 +37,22 @@ export function useSwapExecutionV3(params: {
   const executeSwapV3 = useCallback(
     async (args: {
       recipient: Address;
-      amountIn: bigint; // msg.value
+      amountIn: bigint;
       minOut: bigint;
       pathBytes: `0x${string}`;
-      deadlineSeconds?: number; // default 600
+      // true for native SEI-in (sends msg.value), false for ERC20-in (USDY/WSEI/etc)
+      payWithNative?: boolean;
+      deadlineSeconds?: number;
     }) => {
-      const { recipient, amountIn, minOut, pathBytes, deadlineSeconds = 600 } = args;
+      const {
+        recipient,
+        amountIn,
+        minOut,
+        pathBytes,
+        payWithNative = true,
+        deadlineSeconds = 600,
+      } = args;
+
       const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineSeconds);
 
       try {
@@ -63,7 +71,7 @@ export function useSwapExecutionV3(params: {
               amountOutMinimum: minOut,
             },
           ],
-          value: amountIn,
+          value: payWithNative ? amountIn : 0n,
         })) as `0x${string}`;
 
         return hash;

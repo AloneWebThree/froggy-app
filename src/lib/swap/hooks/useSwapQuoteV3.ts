@@ -40,9 +40,10 @@ export function useSwapQuoteV3(params: {
   pathBytes: `0x${string}`;
   amountIn: bigint | null;
   outDecimals: number;
-  slippageBps?: number; // default 200 (2%)
+  slippageBps?: number;
 }) {
-  const { quoterAddress, pathBytes, amountIn, outDecimals, slippageBps = 200 } = params;
+  const { quoterAddress, pathBytes, amountIn, outDecimals, slippageBps = 200 } =
+    params;
 
   const { data, isLoading, isFetching, isError, error } = useReadContract({
     address: quoterAddress,
@@ -63,10 +64,15 @@ export function useSwapQuoteV3(params: {
 
   const computed = useMemo(() => {
     if (!amountOut || amountOut <= 0n) {
-      return { outFormatted: null as string | null, minOut: null as bigint | null };
+      return {
+        outRaw: null as bigint | null,
+        outFormatted: null as string | null,
+        minOut: null as bigint | null,
+      };
     }
     const minOut = (amountOut * BigInt(10_000 - slippageBps)) / 10_000n;
     return {
+      outRaw: amountOut,
       outFormatted: formatUnits(amountOut, outDecimals),
       minOut,
     };
@@ -76,6 +82,7 @@ export function useSwapQuoteV3(params: {
     isLoading: isLoading || isFetching,
     isError,
     errorMessage: getErrMsg(error),
+    outRaw: computed.outRaw,
     outFormatted: computed.outFormatted,
     minOut: computed.minOut,
   };
