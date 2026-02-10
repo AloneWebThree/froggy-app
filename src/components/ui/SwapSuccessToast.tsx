@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
-type ToSymbol = "FROG" | "USDC";
+type ToSymbol = "FROG" | "USDC" | "USDY";
 
 type SwapSuccessToastProps = {
     open: boolean;
@@ -24,18 +24,16 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
 
     if (!open) return null;
 
-    const shortHash =
-        txHash && `${txHash.slice(0, 6)}…${txHash.slice(txHash.length - 4)}`;
+    const shortHash = txHash && `${txHash.slice(0, 6)}…${txHash.slice(txHash.length - 4)}`;
 
-    const tokenLabel = toSymbol === "USDC" ? "USDC" : "$FROG";
+    const tokenLabel =
+        toSymbol === "USDC" ? "USDC" : toSymbol === "USDY" ? "USDY" : "$FROG";
 
     return (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm">
             <div
                 className="relative rounded-2xl border border-brand-primary/80 bg-brand-card/95 px-4 py-3 shadow-lg backdrop-blur"
-                style={{
-                    boxShadow: "0 0 12px rgba(110, 184, 25, 0.45)", // Froggy green glow
-                }}
+                style={{ boxShadow: "0 0 12px rgba(110, 184, 25, 0.45)" }}
             >
                 <button
                     onClick={onClose}
@@ -55,9 +53,7 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
 
                         <p className="text-brand-subtle">
                             Your swap to{" "}
-                            <span className="font-semibold text-brand-primary">
-                                {tokenLabel}
-                            </span>{" "}
+                            <span className="font-semibold text-brand-primary">{tokenLabel}</span>{" "}
                             was confirmed on Sei. Check your wallet for your updated balance.
                         </p>
 

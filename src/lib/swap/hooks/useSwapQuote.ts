@@ -1,4 +1,5 @@
-﻿"use client";
+﻿// src/lib/swap/hooks/useSwapQuote.ts
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatUnits, type Address, type Abi } from "viem";
@@ -62,7 +63,9 @@ export function useSwapQuote(params: {
 
   const computed = useMemo(() => {
     if (!data || data.length < 2) return null;
-    const out = data[1];
+
+    // IMPORTANT: multi-hop support (output is always the last element)
+    const out = data[data.length - 1];
     if (out <= 0n) return null;
 
     const minOut = (out * BigInt(10_000 - slippageBps)) / 10_000n;
