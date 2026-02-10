@@ -90,7 +90,7 @@ export function TokenSection() {
                     <h3 className="text-lg font-semibold flex items-center justify-between text-center md:text-left gap-2">
                         <span>Supply Distribution</span>
                         <span className="text-xs text-brand-subtle whitespace-nowrap">
-                            Percentages set at bonding on Oct 11, 2024
+                            Set at bonding on Oct 11, 2024
                         </span>
                     </h3>
 
