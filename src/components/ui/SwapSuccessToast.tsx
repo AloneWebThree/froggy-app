@@ -1,9 +1,10 @@
+// src/components/ui/SwapSuccessToast.tsx
 "use client";
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
-type ToSymbol = "FROG" | "USDC" | "USDY";
+export type ToSymbol = "FROG" | "USDC" | "USDY" | "SEI";
 
 type SwapSuccessToastProps = {
     open: boolean;
@@ -27,7 +28,13 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
     const shortHash = txHash && `${txHash.slice(0, 6)}…${txHash.slice(txHash.length - 4)}`;
 
     const tokenLabel =
-        toSymbol === "USDC" ? "USDC" : toSymbol === "USDY" ? "USDY" : "$FROG";
+        toSymbol === "USDC"
+            ? "USDC"
+            : toSymbol === "USDY"
+                ? "USDY"
+                : toSymbol === "SEI"
+                    ? "SEI"
+                    : "$FROG";
 
     return (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm">
@@ -52,9 +59,8 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
                         <div className="font-semibold text-brand-text">Swap successful</div>
 
                         <p className="text-brand-subtle">
-                            Your swap to{" "}
-                            <span className="font-semibold text-brand-primary">{tokenLabel}</span>{" "}
-                            was confirmed on Sei. Check your wallet for your updated balance.
+                            Your swap to <span className="font-semibold text-brand-primary">{tokenLabel}</span> was confirmed on Sei.
+                            Check your wallet for your updated balance.
                         </p>
 
                         {txHash && (
