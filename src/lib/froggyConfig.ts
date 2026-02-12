@@ -26,12 +26,15 @@ export const WSEI_ADDRESS =
   "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7" as const;
 
 // ===== Tokens used by Swap UI =====
-// (moved here so SwapSection doesn’t need to import from /swap/tokens)
 export const USDY_ADDRESS =
   "0x54cD901491AeF397084453F4372B93c33260e2A6" as const;
 
 export const USDC_ADDRESS =
   "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392" as const;
+
+// New: DRG (18 decimals)
+export const DRG_TOKEN_ADDRESS =
+  "0x0a526e425809aEA71eb279d24ae22Dee6C92A4Fe" as const;
 
 // Convenience object used by the landing page today
 export const ADDR = {
@@ -141,7 +144,7 @@ export const DRAGON_ROUTER_ABI = [
     outputs: [{ name: "amounts", type: "uint256[]" }],
   },
 
-  // ✅ Added for USDY -> SEI (multi-hop USDY -> FROG -> WSEI, router unwraps to SEI)
+  // Used for token -> SEI (router unwraps WSEI to SEI)
   {
     name: "swapExactTokensForSEI",
     type: "function",

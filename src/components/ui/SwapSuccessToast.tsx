@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
-export type ToSymbol = "FROG" | "USDC" | "USDY" | "SEI";
+export type ToSymbol = "FROG" | "USDC" | "USDY" | "SEI" | "DRG";
 
 type SwapSuccessToastProps = {
     open: boolean;
@@ -15,7 +15,12 @@ type SwapSuccessToastProps = {
 
 const EXPLORER_BASE = "https://seitrace.com/tx/"; // add ?chain=pacific-1 if you want
 
-export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSuccessToastProps) {
+export function SwapSuccessToast({
+    open,
+    onClose,
+    txHash,
+    toSymbol,
+}: SwapSuccessToastProps) {
     // auto-hide after 5s
     useEffect(() => {
         if (!open) return;
@@ -25,7 +30,8 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
 
     if (!open) return null;
 
-    const shortHash = txHash && `${txHash.slice(0, 6)}…${txHash.slice(txHash.length - 4)}`;
+    const shortHash =
+        txHash && `${txHash.slice(0, 6)}…${txHash.slice(txHash.length - 4)}`;
 
     const tokenLabel =
         toSymbol === "USDC"
@@ -34,7 +40,9 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
                 ? "USDY"
                 : toSymbol === "SEI"
                     ? "SEI"
-                    : "$FROG";
+                    : toSymbol === "DRG"
+                        ? "DRG"
+                        : "$FROG";
 
     return (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm">
@@ -59,8 +67,11 @@ export function SwapSuccessToast({ open, onClose, txHash, toSymbol }: SwapSucces
                         <div className="font-semibold text-brand-text">Swap successful</div>
 
                         <p className="text-brand-subtle">
-                            Your swap to <span className="font-semibold text-brand-primary">{tokenLabel}</span> was confirmed on Sei.
-                            Check your wallet for your updated balance.
+                            Your swap to{" "}
+                            <span className="font-semibold text-brand-primary">
+                                {tokenLabel}
+                            </span>{" "}
+                            was confirmed on Sei. Check your wallet for your updated balance.
                         </p>
 
                         {txHash && (
