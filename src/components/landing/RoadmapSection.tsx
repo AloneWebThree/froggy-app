@@ -12,7 +12,7 @@ export function RoadmapSection() {
         {
             t: "Phase 2",
             d: "Dashboard for on-chain streaks, early supporter badges, and campaign prizes.",
-            done: false,
+            done: true,
         },
         {
             t: "Phase 3",
