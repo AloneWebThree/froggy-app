@@ -10,6 +10,7 @@ import {
     formatUnits,
     createPublicClient,
     http,
+    maxUint256,
 } from "viem";
 import {
     useAccount,
@@ -99,6 +100,14 @@ export function SwapSection() {
     const [fromSymbol, setFromSymbol] = useState<FromSymbol>("SEI");
     const [toSymbol, setToSymbol] = useState<ToSymbol>("FROG");
 
+    // Default: approve max. Toggle on => approve exact amount.
+    const [approveExact, setApproveExact] = useState(false);
+
+    // Reset approve mode when switching input token (simple, predictable UX)
+    useEffect(() => {
+        setApproveExact(false);
+    }, [fromSymbol]);
+
     // Hydration-safe mount gate
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
@@ -141,12 +150,12 @@ export function SwapSection() {
         setShowErrorToast(true);
     }, []);
 
-    // Clear stale error toast when user edits inputs
+    // Clear stale error toast when user edits inputs (simple + deterministic)
     useEffect(() => {
-        if (!showErrorToast && !errorToastMessage) return;
+        if (!showErrorToast) return;
         setShowErrorToast(false);
         setErrorToastMessage(undefined);
-    }, [amount, toSymbol, fromSymbol, showErrorToast, errorToastMessage]);
+    }, [amount, toSymbol, fromSymbol, showErrorToast]);
 
     // Routing extracted to hook
     const { allowedToSymbols, path: v2Path, outDecimals } = useSwapRouting(
@@ -156,7 +165,8 @@ export function SwapSection() {
 
     // If From/allowed list changes and To becomes invalid, snap To to first allowed option
     useEffect(() => {
-        if (!allowedToSymbols.includes(toSymbol)) setToSymbol(allowedToSymbols[0]);
+        if (!allowedToSymbols.includes(toSymbol))
+            setToSymbol(allowedToSymbols[0]);
     }, [allowedToSymbols, toSymbol]);
 
     // Prices
@@ -209,7 +219,10 @@ export function SwapSection() {
             if (!/^\d*\.?\d*$/.test(amount)) return null;
 
             if (fromSymbol === "USDY") {
-                const units = parseUnits(amount as `${string}`, getDecimals("USDY"));
+                const units = parseUnits(
+                    amount as `${string}`,
+                    getDecimals("USDY")
+                );
                 return units > 0n ? units : null;
             }
 
@@ -230,7 +243,9 @@ export function SwapSection() {
         }
 
         if (fromSymbol === "USDY") {
-            return usdyUsdPrice !== null ? amountInNumber * usdyUsdPrice : null;
+            return usdyUsdPrice !== null
+                ? amountInNumber * usdyUsdPrice
+                : null;
         }
 
         return drgUsdPrice !== null ? amountInNumber * drgUsdPrice : null;
@@ -247,7 +262,9 @@ export function SwapSection() {
     });
 
     // To-side USD estimate
-    const tokenOutAmount = quote.outFormatted ? parseFloat(quote.outFormatted) : 0;
+    const tokenOutAmount = quote.outFormatted
+        ? parseFloat(quote.outFormatted)
+        : 0;
 
     const toUsdValue = useMemo(() => {
         if (
@@ -259,7 +276,9 @@ export function SwapSection() {
 
         if (toSymbol === "USDC") return tokenOutAmount;
         if (toSymbol === "USDY")
-            return usdyUsdPrice !== null ? tokenOutAmount * usdyUsdPrice : null;
+            return usdyUsdPrice !== null
+                ? tokenOutAmount * usdyUsdPrice
+                : null;
         if (toSymbol === "SEI")
             return seiUsdPrice !== null ? tokenOutAmount * seiUsdPrice : null;
         if (toSymbol === "DRG")
@@ -283,21 +302,23 @@ export function SwapSection() {
         query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
     });
 
-    const { data: usdyBalanceRaw, refetch: refetchUsdyBalance } = useReadContract({
-        address: USDY_ADDRESS as Address,
-        abi: ERC20_ABI as unknown as Abi,
-        functionName: "balanceOf",
-        args: [address as Address],
-        query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
-    });
+    const { data: usdyBalanceRaw, refetch: refetchUsdyBalance } =
+        useReadContract({
+            address: USDY_ADDRESS as Address,
+            abi: ERC20_ABI as unknown as Abi,
+            functionName: "balanceOf",
+            args: [address as Address],
+            query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
+        });
 
-    const { data: drgBalanceRaw, refetch: refetchDrgBalance } = useReadContract({
-        address: DRG_TOKEN_ADDRESS as Address,
-        abi: ERC20_ABI as unknown as Abi,
-        functionName: "balanceOf",
-        args: [address as Address],
-        query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
-    });
+    const { data: drgBalanceRaw, refetch: refetchDrgBalance } =
+        useReadContract({
+            address: DRG_TOKEN_ADDRESS as Address,
+            abi: ERC20_ABI as unknown as Abi,
+            functionName: "balanceOf",
+            args: [address as Address],
+            query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
+        });
 
     const SEI_GAS_BUFFER_RAW = useMemo(() => parseUnits("0.01", 18), []);
 
@@ -307,7 +328,8 @@ export function SwapSection() {
         if (fromSymbol === "SEI") {
             const raw = seiBalance?.value;
             if (typeof raw !== "bigint") return null;
-            const spendable = raw > SEI_GAS_BUFFER_RAW ? raw - SEI_GAS_BUFFER_RAW : 0n;
+            const spendable =
+                raw > SEI_GAS_BUFFER_RAW ? raw - SEI_GAS_BUFFER_RAW : 0n;
             return spendable;
         }
 
@@ -359,27 +381,29 @@ export function SwapSection() {
 
     // ========= Allowances =========
 
-    const { data: usdyAllowance, refetch: refetchUsdyAllowance } = useReadContract({
-        address: USDY_ADDRESS as Address,
-        abi: ERC20_ABI as unknown as Abi,
-        functionName: "allowance",
-        args: [address as Address, DRAGON_ROUTER_ADDRESS as Address],
-        query: {
-            enabled: !!address && canReadOnSei && fromSymbol === "USDY",
-            staleTime: 5_000,
-        },
-    });
+    const { data: usdyAllowance, refetch: refetchUsdyAllowance } =
+        useReadContract({
+            address: USDY_ADDRESS as Address,
+            abi: ERC20_ABI as unknown as Abi,
+            functionName: "allowance",
+            args: [address as Address, DRAGON_ROUTER_ADDRESS as Address],
+            query: {
+                enabled: !!address && canReadOnSei && fromSymbol === "USDY",
+                staleTime: 5_000,
+            },
+        });
 
-    const { data: drgAllowance, refetch: refetchDrgAllowance } = useReadContract({
-        address: DRG_TOKEN_ADDRESS as Address,
-        abi: ERC20_ABI as unknown as Abi,
-        functionName: "allowance",
-        args: [address as Address, DRAGON_ROUTER_ADDRESS as Address],
-        query: {
-            enabled: !!address && canReadOnSei && fromSymbol === "DRG",
-            staleTime: 5_000,
-        },
-    });
+    const { data: drgAllowance, refetch: refetchDrgAllowance } =
+        useReadContract({
+            address: DRG_TOKEN_ADDRESS as Address,
+            abi: ERC20_ABI as unknown as Abi,
+            functionName: "allowance",
+            args: [address as Address, DRAGON_ROUTER_ADDRESS as Address],
+            query: {
+                enabled: !!address && canReadOnSei && fromSymbol === "DRG",
+                staleTime: 5_000,
+            },
+        });
 
     const [isApproving, setIsApproving] = useState(false);
 
@@ -487,19 +511,43 @@ export function SwapSection() {
 
             if (currentAllowance < amountInRaw) {
                 setIsApproving(true);
-                const approvalHash = await writeContractAsync({
-                    chainId: SEI_EVM_CHAIN_ID,
-                    address: tokenIn,
-                    abi: ERC20_ABI as unknown as Abi,
-                    functionName: "approve",
-                    args: [DRAGON_ROUTER_ADDRESS as Address, amountInRaw],
-                });
 
-                await publicClient.waitForTransactionReceipt({
-                    hash: approvalHash as `0x${string}`,
-                });
+                const approvalAmount = approveExact ? amountInRaw : maxUint256;
 
-                setIsApproving(false);
+                try {
+                    // Some ERC20s require approve(0) before approve(non-zero)
+                    if (currentAllowance > 0n && approvalAmount !== 0n) {
+                        const zeroHash = await writeContractAsync({
+                            chainId: SEI_EVM_CHAIN_ID,
+                            address: tokenIn,
+                            abi: ERC20_ABI as unknown as Abi,
+                            functionName: "approve",
+                            args: [DRAGON_ROUTER_ADDRESS as Address, 0n],
+                        });
+
+                        await publicClient.waitForTransactionReceipt({
+                            hash: zeroHash as `0x${string}`,
+                        });
+                    }
+
+                    const approvalHash = await writeContractAsync({
+                        chainId: SEI_EVM_CHAIN_ID,
+                        address: tokenIn,
+                        abi: ERC20_ABI as unknown as Abi,
+                        functionName: "approve",
+                        args: [DRAGON_ROUTER_ADDRESS as Address, approvalAmount],
+                    });
+
+                    await publicClient.waitForTransactionReceipt({
+                        hash: approvalHash as `0x${string}`,
+                    });
+
+                    // Refetch allowance immediately after approval confirms
+                    if (fromSymbol === "USDY") await refetchUsdyAllowance();
+                    if (fromSymbol === "DRG") await refetchDrgAllowance();
+                } finally {
+                    setIsApproving(false);
+                }
             }
 
             if (toSymbol === "FROG") {
@@ -508,7 +556,13 @@ export function SwapSection() {
                     address: DRAGON_ROUTER_ADDRESS as Address,
                     abi: DRAGON_ROUTER_ABI as unknown as Abi,
                     functionName: "swapExactTokensForTokens",
-                    args: [amountInRaw, quote.minOut, v2Path, address as Address, deadline],
+                    args: [
+                        amountInRaw,
+                        quote.minOut,
+                        v2Path,
+                        address as Address,
+                        deadline,
+                    ],
                 });
                 return;
             }
@@ -518,7 +572,13 @@ export function SwapSection() {
                 address: DRAGON_ROUTER_ADDRESS as Address,
                 abi: DRAGON_ROUTER_ABI as unknown as Abi,
                 functionName: "swapExactTokensForSEI",
-                args: [amountInRaw, quote.minOut, v2Path, address as Address, deadline],
+                args: [
+                    amountInRaw,
+                    quote.minOut,
+                    v2Path,
+                    address as Address,
+                    deadline,
+                ],
             });
         } catch (err: unknown) {
             setIsApproving(false);
@@ -539,6 +599,9 @@ export function SwapSection() {
         drgAllowance,
         publicClient,
         insufficientBalance,
+        approveExact,
+        refetchUsdyAllowance,
+        refetchDrgAllowance,
     ]);
 
     const handlePrimaryClick = useCallback(async () => {
@@ -622,6 +685,8 @@ export function SwapSection() {
         quote.outFormatted,
     ]);
 
+    const showApproveToggle = fromSymbol !== "SEI";
+
     return (
         <section className="mx-auto max-w-6xl px-4 pb-14">
             <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
@@ -676,11 +741,15 @@ export function SwapSection() {
                 >
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
-                            <div className="text-sm text-brand-subtle">Quick Action</div>
+                            <div className="text-sm text-brand-subtle">
+                                Quick Action
+                            </div>
                             <h3 className="mt-1 text-lg font-semibold truncate">
                                 {fromSymbol} → {toSymbol}
                             </h3>
-                            <p className="mt-1 text-xs text-brand-subtle">{helpLine}</p>
+                            <p className="mt-1 text-xs text-brand-subtle">
+                                {helpLine}
+                            </p>
                         </div>
                         <Image
                             src="/froggy-cape.png"
@@ -706,7 +775,9 @@ export function SwapSection() {
                                     <select
                                         value={fromSymbol}
                                         onChange={(e) =>
-                                            setFromSymbol(e.currentTarget.value as FromSymbol)
+                                            setFromSymbol(
+                                                e.currentTarget.value as FromSymbol
+                                            )
                                         }
                                         className="h-9 w-full rounded-lg bg-black/20 px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                                     >
@@ -724,7 +795,9 @@ export function SwapSection() {
                                     <select
                                         value={toSymbol}
                                         onChange={(e) =>
-                                            setToSymbol(e.currentTarget.value as ToSymbol)
+                                            setToSymbol(
+                                                e.currentTarget.value as ToSymbol
+                                            )
                                         }
                                         className="h-9 w-full rounded-lg bg-black/20 px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                                     >
@@ -755,8 +828,12 @@ export function SwapSection() {
                                         <button
                                             type="button"
                                             onClick={handleMax}
-                                            disabled={fromBalanceRaw === null || fromBalanceRaw === 0n}
-                                            className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors duration-150 ${fromBalanceRaw === null || fromBalanceRaw === 0n
+                                            disabled={
+                                                fromBalanceRaw === null ||
+                                                fromBalanceRaw === 0n
+                                            }
+                                            className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors duration-150 ${fromBalanceRaw === null ||
+                                                    fromBalanceRaw === 0n
                                                     ? "cursor-not-allowed opacity-40"
                                                     : "text-brand-primary/90 hover:text-brand-primary hover:bg-white/5"
                                                 }`}
@@ -783,7 +860,9 @@ export function SwapSection() {
                                             : "focus:ring-brand-primary/30"
                                         }`}
                                     value={amount}
-                                    onChange={(e) => setAmount(e.target.value.trim())}
+                                    onChange={(e) =>
+                                        setAmount(e.target.value.trim())
+                                    }
                                 />
 
                                 <div className="flex items-center justify-between text-[11px] text-brand-subtle min-w-0">
@@ -792,11 +871,12 @@ export function SwapSection() {
                                             ? "Insufficient balance."
                                             : "Enter amount to swap."}
                                     </span>
-                                    {fromUsdValue !== null && formatUsd(fromUsdValue) && (
-                                        <span className="font-mono text-xs text-brand-text shrink-0">
-                                            ≈ {formatUsd(fromUsdValue)}
-                                        </span>
-                                    )}
+                                    {fromUsdValue !== null &&
+                                        formatUsd(fromUsdValue) && (
+                                            <span className="font-mono text-xs text-brand-text shrink-0">
+                                                ≈ {formatUsd(fromUsdValue)}
+                                            </span>
+                                        )}
                                 </div>
                             </div>
 
@@ -809,7 +889,9 @@ export function SwapSection() {
                                     type="button"
                                     className="h-11 w-full rounded-xl bg-black/20 text-left px-3 text-sm font-mono overflow-hidden text-ellipsis whitespace-nowrap"
                                 >
-                                    {outDisplay ? `${outDisplay} ${toSymbol}` : `0.0 ${toSymbol}`}
+                                    {outDisplay
+                                        ? `${outDisplay} ${toSymbol}`
+                                        : `0.0 ${toSymbol}`}
                                 </button>
 
                                 <div className="flex items-center justify-between text-[11px] text-brand-subtle min-w-0">
@@ -825,18 +907,57 @@ export function SwapSection() {
                                         ) : (
                                             <>
                                                 No quote available
-                                                {quote.errorMessage ? ` (${quote.errorMessage})` : ""}.
+                                                {quote.errorMessage
+                                                    ? ` (${quote.errorMessage})`
+                                                    : ""}
+                                                .
                                             </>
                                         )}
                                     </span>
 
-                                    {toUsdValue !== null && formatUsd(toUsdValue) && (
-                                        <span className="font-mono text-xs text-brand-text shrink-0">
-                                            ≈ {formatUsd(toUsdValue)}
-                                        </span>
-                                    )}
+                                    {toUsdValue !== null &&
+                                        formatUsd(toUsdValue) && (
+                                            <span className="font-mono text-xs text-brand-text shrink-0">
+                                                ≈ {formatUsd(toUsdValue)}
+                                            </span>
+                                        )}
                                 </div>
                             </div>
+
+                            {/* Approve behavior toggle (only for ERC20 inputs) */}
+                            {showApproveToggle && (
+                                <label className="flex items-center justify-between gap-3 rounded-xl bg-black/10 border border-white/10 px-3 py-2">
+                                    <div className="text-[12px] font-semibold text-brand-text">
+                                        Approve exact amount
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setApproveExact((v) => !v)
+                                        }
+                                        disabled={
+                                            isApproving || isPending || isConfirming
+                                        }
+                                        className={`h-6 w-11 rounded-full border transition-colors ${approveExact
+                                                ? "bg-brand-primary/80 border-brand-primary/40"
+                                                : "bg-black/20 border-white/10"
+                                            } ${isApproving || isPending || isConfirming
+                                                ? "opacity-50 cursor-not-allowed"
+                                                : ""
+                                            }`}
+                                        aria-pressed={approveExact}
+                                        aria-label="Toggle approve exact amount"
+                                    >
+                                        <span
+                                            className={`block h-5 w-5 rounded-full bg-white transition-transform ${approveExact
+                                                    ? "translate-x-5"
+                                                    : "translate-x-0.5"
+                                                }`}
+                                        />
+                                    </button>
+                                </label>
+                            )}
 
                             <button
                                 type="button"
@@ -853,25 +974,6 @@ export function SwapSection() {
                             <div className="border-t border-white/10 pt-3" />
                             <LiveStats />
                         </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                        <a
-                            href={URL.tokenExplorer}
-                            className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            View on Seitrace
-                        </a>
-                        <a
-                            href={URL.dexFull}
-                            className="text-xs rounded-lg border border-white/10 px-3 py-2 text-center hover:bg-white/5"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            View full chart
-                        </a>
                     </div>
                 </div>
             </div>

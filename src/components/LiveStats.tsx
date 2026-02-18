@@ -54,7 +54,7 @@ export default function LiveStats() {
     }
 
     return (
-        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className={card}>
                 <div className={label}>Price</div>
                 <div className={value}>{isLoading ? "…" : fmt(price)}</div>
