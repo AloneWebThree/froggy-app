@@ -22,8 +22,10 @@ import {
 import { requireAddress, getDecimals } from "@/lib/swap/tokenRegistry";
 import { errToMessage } from "@/lib/utils/errors";
 import { clampDecimals, formatTokenDisplay } from "@/lib/utils/format";
+import type { WriteContractParameters } from "wagmi/actions";
 
 type PoolKey = "SEI_FROG" | "USDY_FROG";
+type LiqMode = "ADD" | "REMOVE";
 
 const PAIR_ABI = [
     {
@@ -40,6 +42,12 @@ const PAIR_ABI = [
     { type: "function", name: "token0", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
     { type: "function", name: "token1", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
 ] as const satisfies Abi;
+
+const TOTAL_SUPPLY_ABI = [
+    { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const satisfies Abi;
+
+const LP_DECIMALS = 18;
 
 function sanitizeAmountInput(input: string) {
     if (input === "") return "";
@@ -61,6 +69,23 @@ function sanitizeAmountInput(input: string) {
     }
 
     return fracPart !== undefined ? `${intPart}.${fracPart}` : intPart;
+}
+
+type AnyWriteReq = WriteContractParameters;
+
+function sanitizeTxRequest(req: AnyWriteReq): AnyWriteReq {
+    const r: AnyWriteReq = { ...req };
+
+    // Some wallets choke if gas is present but 0.
+    if ((r as { gas?: bigint }).gas === 0n) delete (r as { gas?: bigint }).gas;
+
+    // Same for fee fields if they come back as 0.
+    if ((r as { gasPrice?: bigint }).gasPrice === 0n) delete (r as { gasPrice?: bigint }).gasPrice;
+    if ((r as { maxFeePerGas?: bigint }).maxFeePerGas === 0n) delete (r as { maxFeePerGas?: bigint }).maxFeePerGas;
+    if ((r as { maxPriorityFeePerGas?: bigint }).maxPriorityFeePerGas === 0n)
+        delete (r as { maxPriorityFeePerGas?: bigint }).maxPriorityFeePerGas;
+
+    return r;
 }
 
 function formatCompactNumber(n: number, maxFrac = 2) {
@@ -111,6 +136,7 @@ export function LiquiditySection() {
     const usdy = requireAddress("USDY");
 
     const [pool, setPool] = useState<PoolKey>("SEI_FROG");
+    const [mode, setMode] = useState<LiqMode>("ADD");
 
     const poolMeta = useMemo(() => {
         if (pool === "SEI_FROG") {
@@ -140,6 +166,7 @@ export function LiquiditySection() {
 
     const [amountA, setAmountA] = useState("");
     const [amountB, setAmountB] = useState("");
+    const [removePct, setRemovePct] = useState(0);
     const lastEditedRef = useRef<"A" | "B" | null>(null);
 
     // Debounce both sides (prevents ping-pong on fast typing)
@@ -183,6 +210,24 @@ export function LiquiditySection() {
         functionName: "balanceOf",
         args: address ? [address as Address] : undefined,
         query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
+    });
+
+    // LP (pair) balance + totalSupply for Remove mode
+    const { data: lpBalRaw, refetch: refetchLpBal } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: poolMeta.pair,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: address ? [address as Address] : undefined,
+        query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
+    });
+
+    const { data: lpTotalSupplyRaw } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: poolMeta.pair,
+        abi: TOTAL_SUPPLY_ABI,
+        functionName: "totalSupply",
+        query: { enabled: canReadOnSei, staleTime: 10_000 },
     });
 
     const SEI_GAS_BUFFER_RAW = useMemo(() => parseUnits("0.01", 18), []);
@@ -276,6 +321,7 @@ export function LiquiditySection() {
                     reserveB = reserve0;
                 }
 
+                // ready means "non-empty pool"; keep it strict for ratio UI and remove preview
                 setReserves({ reserveA, reserveB, ready: reserveA > 0n && reserveB > 0n });
             } catch {
                 if (!cancelled) setReserves({ reserveA: 0n, reserveB: 0n, ready: false });
@@ -469,6 +515,35 @@ export function LiquiditySection() {
         return parsed.rawB > tokenBBalanceRaw;
     }, [parsed.rawB, tokenBBalanceRaw]);
 
+    const lpBalanceRaw = useMemo(() => {
+        if (!address || !canReadOnSei) return null;
+        return (lpBalRaw as bigint | undefined) ?? null;
+    }, [address, canReadOnSei, lpBalRaw]);
+
+    const lpBalDisplay = useMemo(() => {
+        if (lpBalanceRaw === null) return null;
+        return formatTokenDisplay(lpBalanceRaw, LP_DECIMALS);
+    }, [lpBalanceRaw]);
+
+    const clampedRemovePct = useMemo(() => Math.max(0, Math.min(100, removePct)), [removePct]);
+
+    const lpToBurnRaw = useMemo(() => {
+        if (lpBalanceRaw === null) return 0n;
+        if (clampedRemovePct <= 0) return 0n;
+        return (lpBalanceRaw * BigInt(clampedRemovePct)) / 100n;
+    }, [lpBalanceRaw, clampedRemovePct]);
+
+    const removePreview = useMemo(() => {
+        const total = (lpTotalSupplyRaw as bigint | undefined) ?? null;
+        if (!reserves.ready || total === null || total <= 0n || lpToBurnRaw <= 0n) {
+            return { outA: 0n, outB: 0n, ready: false as const };
+        }
+        // proportional share of reserves (approx; ignores fees/slippage)
+        const outA = (reserves.reserveA * lpToBurnRaw) / total;
+        const outB = (reserves.reserveB * lpToBurnRaw) / total;
+        return { outA, outB, ready: outA > 0n || outB > 0n };
+    }, [reserves.ready, reserves.reserveA, reserves.reserveB, lpTotalSupplyRaw, lpToBurnRaw]);
+
     const addLiquidity = useCallback(async () => {
         if (txLockRef.current || busy || isPending) return;
         txLockRef.current = true;
@@ -482,10 +557,6 @@ export function LiquiditySection() {
             }
             if (!seiPublicClient) {
                 setError("Public client not ready yet. Try again.");
-                return;
-            }
-            if (!reserves.ready) {
-                setError("Reserves not loaded yet. Try again in a moment.");
                 return;
             }
             if (!amountA || !amountB) {
@@ -529,16 +600,24 @@ export function LiquiditySection() {
                     value: rawA,
                 });
 
+                const safeReq = sanitizeTxRequest(request as unknown as AnyWriteReq);
+
                 const hash = (await writeContractAsync({
-                    ...(request as unknown as Parameters<typeof writeContractAsync>[0]),
+                    ...(safeReq as unknown as Parameters<typeof writeContractAsync>[0]),
                     chainId: SEI_EVM_CHAIN_ID,
                 })) as Hex;
 
                 await seiPublicClient.waitForTransactionReceipt({ hash });
 
-                // Refresh balances + reserves immediately
-                await Promise.allSettled([refetchSeiBal(), refetchUsdyBal(), refetchFrogBal()]);
+                // Refresh balances + reserves immediately (only what applies) + LP bal
+                const refetches: Promise<unknown>[] = [refetchFrogBal(), refetchLpBal(), refetchSeiBal()];
+                await Promise.allSettled(refetches);
                 setRefreshTick((x) => x + 1);
+
+                // Clear inputs to prevent accidental double-submit
+                setAmountA("");
+                setAmountB("");
+                lastEditedRef.current = null;
 
                 return;
             }
@@ -555,16 +634,24 @@ export function LiquiditySection() {
                 account: address as Address,
             });
 
+            const safeReq = sanitizeTxRequest(request as unknown as AnyWriteReq);
+
             const hash = (await writeContractAsync({
-                ...(request as unknown as Parameters<typeof writeContractAsync>[0]),
+                ...(safeReq as unknown as Parameters<typeof writeContractAsync>[0]),
                 chainId: SEI_EVM_CHAIN_ID,
             })) as Hex;
 
             await seiPublicClient.waitForTransactionReceipt({ hash });
 
-            // Refresh balances + reserves immediately
-            await Promise.allSettled([refetchSeiBal(), refetchUsdyBal(), refetchFrogBal()]);
+            // Refresh balances + reserves immediately (only what applies) + LP bal
+            const refetches: Promise<unknown>[] = [refetchFrogBal(), refetchLpBal(), refetchUsdyBal()];
+            await Promise.allSettled(refetches);
             setRefreshTick((x) => x + 1);
+
+            // Clear inputs to prevent accidental double-submit
+            setAmountA("");
+            setAmountB("");
+            lastEditedRef.current = null;
         } catch (e) {
             setError(errToMessage(e, "Failed to add liquidity."));
         } finally {
@@ -577,7 +664,6 @@ export function LiquiditySection() {
         canWriteOnSei,
         address,
         seiPublicClient,
-        reserves.ready,
         amountA,
         amountB,
         poolMeta.mode,
@@ -596,28 +682,174 @@ export function LiquiditySection() {
         refetchSeiBal,
         refetchUsdyBal,
         refetchFrogBal,
+        refetchLpBal,
     ]);
 
-    const submitDisabled = !mounted || wrongNetwork || !canWriteOnSei || !reserves.ready || busy || isPending;
+    const removeLiquidity = useCallback(async () => {
+        if (txLockRef.current || busy || isPending) return;
+        txLockRef.current = true;
+
+        try {
+            setError(null);
+
+            if (!canWriteOnSei || !address) {
+                setError("Connect wallet on Sei EVM (chain 1329).");
+                return;
+            }
+            if (!seiPublicClient) {
+                setError("Public client not ready yet. Try again.");
+                return;
+            }
+            if (!reserves.ready) {
+                setError("Pool reserves not loaded yet. Try again in a moment.");
+                return;
+            }
+
+            const total = (lpTotalSupplyRaw as bigint | undefined) ?? null;
+            if (total === null || total <= 0n) {
+                setError("LP supply not loaded yet. Try again.");
+                return;
+            }
+
+            if (clampedRemovePct <= 0 || lpToBurnRaw <= 0n) {
+                setError("Select an amount to remove.");
+                return;
+            }
+
+            if (lpBalanceRaw !== null && lpToBurnRaw > lpBalanceRaw) {
+                setError("Insufficient LP balance.");
+                return;
+            }
+
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+
+            // Preview-derived mins (approx)
+            const minA = (removePreview.outA * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+            const minB = (removePreview.outB * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+
+            setBusy(true);
+
+            // Approve LP token (pair) to router
+            await approveIfNeeded(poolMeta.pair, lpToBurnRaw);
+
+            if (poolMeta.mode === "SEI") {
+                // removeLiquiditySEI(token, liquidity, amountTokenMin, amountSEIMin, to, deadline)
+                const { request } = await seiPublicClient.simulateContract({
+                    address: routerAddress,
+                    abi: routerAbi,
+                    functionName: "removeLiquiditySEI",
+                    args: [frog, lpToBurnRaw, minB, minA, address as Address, deadline],
+                    account: address as Address,
+                });
+
+                const safeReq = sanitizeTxRequest(request as unknown as AnyWriteReq);
+
+                const hash = (await writeContractAsync({
+                    ...(safeReq as unknown as Parameters<typeof writeContractAsync>[0]),
+                    chainId: SEI_EVM_CHAIN_ID,
+                })) as Hex;
+
+                await seiPublicClient.waitForTransactionReceipt({ hash });
+
+                await Promise.allSettled([refetchSeiBal(), refetchFrogBal(), refetchLpBal(), refetchUsdyBal()]);
+                setRefreshTick((x) => x + 1);
+
+                // Clear remove state
+                setRemovePct(0);
+
+                return;
+            }
+
+            // ERC20-ERC20 path
+            const { request } = await seiPublicClient.simulateContract({
+                address: routerAddress,
+                abi: routerAbi,
+                functionName: "removeLiquidity",
+                args: [usdy, frog, lpToBurnRaw, minA, minB, address as Address, deadline],
+                account: address as Address,
+            });
+
+            const safeReq = sanitizeTxRequest(request as unknown as AnyWriteReq);
+
+            const hash = (await writeContractAsync({
+                ...(safeReq as unknown as Parameters<typeof writeContractAsync>[0]),
+                chainId: SEI_EVM_CHAIN_ID,
+            })) as Hex;
+
+            await seiPublicClient.waitForTransactionReceipt({ hash });
+
+            await Promise.allSettled([refetchUsdyBal(), refetchFrogBal(), refetchLpBal(), refetchSeiBal()]);
+            setRefreshTick((x) => x + 1);
+
+            // Clear remove state
+            setRemovePct(0);
+        } catch (e) {
+            setError(errToMessage(e, "Failed to remove liquidity."));
+        } finally {
+            setBusy(false);
+            txLockRef.current = false;
+        }
+    }, [
+        busy,
+        isPending,
+        canWriteOnSei,
+        address,
+        seiPublicClient,
+        reserves.ready,
+        lpTotalSupplyRaw,
+        clampedRemovePct,
+        lpToBurnRaw,
+        lpBalanceRaw,
+        removePreview.outA,
+        removePreview.outB,
+        poolMeta.mode,
+        poolMeta.pair,
+        routerAddress,
+        routerAbi,
+        usdy,
+        frog,
+        approveIfNeeded,
+        writeContractAsync,
+        refetchSeiBal,
+        refetchUsdyBal,
+        refetchFrogBal,
+        refetchLpBal,
+    ]);
+
+    // Mode-aware disable:
+    // - ADD: do NOT require non-empty reserves (supports first LP add)
+    // - REMOVE: require reserves.ready for preview/mins
+    const baseDisabled =
+        !mounted || wrongNetwork || !canWriteOnSei || busy || isPending || (mode === "REMOVE" ? !reserves.ready : false);
 
     const buttonLabel = useMemo(() => {
         if (!mounted) return "Loading…";
         if (busy || isPending) return "Processing…";
         if (!hasAddress) return "Connect wallet";
         if (wrongNetwork) return "Wrong network";
+
+        if (mode === "ADD") {
+            if (!amountA || !amountB) return "Enter amounts";
+            if (parsed.rawA === null || parsed.rawB === null) return "Enter valid amounts";
+            if (insufficientA) return `Insufficient ${poolMeta.tokenASymbol}`;
+            if (insufficientB) return `Insufficient ${poolMeta.tokenBSymbol}`;
+            // If reserves aren't ready, we can still add (pool may be empty) — ratio auto-fill just won't help yet.
+            return "Add liquidity";
+        }
+
+        // REMOVE
         if (!reserves.ready) return "Loading pool…";
-        if (!amountA || !amountB) return "Enter amounts";
-        if (parsed.rawA === null || parsed.rawB === null) return "Enter valid amounts";
-        if (insufficientA) return `Insufficient ${poolMeta.tokenASymbol}`;
-        if (insufficientB) return `Insufficient ${poolMeta.tokenBSymbol}`;
-        return "Add liquidity";
+        if (lpBalanceRaw === null) return "Loading LP…";
+        if (lpBalanceRaw === 0n) return "No LP to remove";
+        if (clampedRemovePct <= 0) return "Select amount";
+        return "Remove liquidity";
     }, [
         mounted,
         busy,
         isPending,
         hasAddress,
         wrongNetwork,
-        reserves.ready,
+        mode,
         amountA,
         amountB,
         parsed.rawA,
@@ -626,39 +858,108 @@ export function LiquiditySection() {
         insufficientB,
         poolMeta.tokenASymbol,
         poolMeta.tokenBSymbol,
+        reserves.ready,
+        lpBalanceRaw,
+        clampedRemovePct,
     ]);
+
+    const submitDisabled = baseDisabled || (mode === "ADD" ? buttonLabel !== "Add liquidity" : buttonLabel !== "Remove liquidity");
 
     const resetPool = useCallback((next: PoolKey) => {
         lastEditedRef.current = null;
         setPool(next);
         setAmountA("");
         setAmountB("");
+        setRemovePct(0);
         setError(null);
     }, []);
 
+    const switchMode = useCallback((next: LiqMode) => {
+        setMode(next);
+        setError(null);
+        if (next === "ADD") {
+            lastEditedRef.current = null;
+            setAmountA("");
+            setAmountB("");
+        } else {
+            setRemovePct(0);
+        }
+    }, []);
+
+    const statusPill = useMemo(() => {
+        if (!mounted) return { text: "Loading…", cls: "text-brand-subtle border-white/10 bg-black/20" };
+        if (!hasAddress) return { text: "Wallet disconnected", cls: "text-brand-subtle border-white/10 bg-black/20" };
+        if (wrongNetwork) return { text: "Wrong network", cls: "text-red-200 border-red-400/30 bg-red-500/10" };
+        if (isSeiEvm) return { text: "Sei EVM", cls: "text-brand-text border-brand-primary/30 bg-brand-primary/10" };
+        return { text: "Network", cls: "text-brand-subtle border-white/10 bg-black/20" };
+    }, [mounted, hasAddress, wrongNetwork, isSeiEvm]);
+
     return (
         <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-black/20 to-black/5 shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-5">
-            <div className="flex items-start justify-between gap-4">
+            {/* Header (clean + purposeful) */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
-                    <div className="text-sm font-semibold">Add Liquidity</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1 rounded-xl bg-black/30 border border-white/10 p-1">
+                            <button
+                                type="button"
+                                onClick={() => switchMode("ADD")}
+                                className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${mode === "ADD"
+                                        ? "bg-brand-primary/10 text-brand-text border-brand-primary/40"
+                                        : "text-brand-subtle border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
+                                    }`}
+                            >
+                                Add
+                            </button>
 
-                    {reservesContent ? (
-                        <div className="mt-1 text-xs">
-                            <span className="text-brand-subtle">Reserves: </span>
-                            <span className="text-brand-text">{reservesContent}</span>
+                            <button
+                                type="button"
+                                onClick={() => switchMode("REMOVE")}
+                                className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${mode === "REMOVE"
+                                        ? "bg-red-500/10 text-red-200 border-red-400/40"
+                                        : "text-brand-subtle border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
+                                    }`}
+                            >
+                                Remove
+                            </button>
                         </div>
-                    ) : (
-                        <div className="mt-1 text-xs text-brand-subtle">Reserves unavailable.</div>
-                    )}
+
+                        {/* Replace redundant "Add • SEI/FROG" with a useful status pill */}
+                        <span
+                            className={`inline-flex h-6 items-center rounded-lg border px-2 text-[10px] font-semibold leading-none ${statusPill.cls}`}
+                        >
+                            {statusPill.text}
+                        </span>
+                    </div>
+
+                    {/* Reserves + Rate grouped */}
+                    <div className="mt-2 grid gap-1">
+                        {reservesContent ? (
+                            <div className="text-[11px] text-brand-subtle">
+                                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1">
+                                    <span className="text-white/60">Reserves</span>
+                                    <span className="text-white/20">•</span>
+                                    <span className="text-brand-text font-mono">{reservesContent}</span>
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="text-[11px] text-brand-subtle">
+                                Reserves unavailable{mode === "ADD" ? " (pool may be empty — you can still add)." : "."}
+                            </div>
+                        )}
+
+                        {rateLine && <div className="mt-1 pl-2 text-[11px] leading-tight text-white/55">{rateLine}</div>}
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 rounded-xl bg-black/30 border border-white/10 p-1">
+                {/* Pool toggle (de-emphasized) */}
+                <div className="flex items-center gap-1.5 rounded-xl bg-black/20 border border-white/10 p-1">
                     <button
                         type="button"
                         onClick={() => resetPool("SEI_FROG")}
                         className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${pool === "SEI_FROG"
-                                ? "bg-brand-primary/10 text-brand-text border-brand-primary/40"
-                                : "text-brand-subtle border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
+                                ? "bg-brand-primary/10 text-brand-text border-brand-primary/30"
+                                : "text-white/55 border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
                             }`}
                     >
                         SEI / FROG
@@ -668,8 +969,8 @@ export function LiquiditySection() {
                         type="button"
                         onClick={() => resetPool("USDY_FROG")}
                         className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${pool === "USDY_FROG"
-                                ? "bg-brand-primary/10 text-brand-text border-brand-primary/40"
-                                : "text-brand-subtle border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
+                                ? "bg-brand-primary/10 text-brand-text border-brand-primary/30"
+                                : "text-white/55 border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
                             }`}
                     >
                         USDY / FROG
@@ -677,102 +978,212 @@ export function LiquiditySection() {
                 </div>
             </div>
 
-            <div className="mt-4 grid gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                        <div className="flex items-center justify-between text-[11px] text-brand-subtle">
-                            <span>Amount ({poolMeta.tokenASymbol})</span>
+            {/* Tightened spacing */}
+            <div className="mt-3 grid gap-4">
+                {mode === "ADD" ? (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between text-[11px] text-brand-subtle">
+                                    <span>Amount ({poolMeta.tokenASymbol})</span>
 
-                            <div className="flex items-center gap-2">
-                                {hasAddress && tokenABalDisplay && (
-                                    <span className="font-mono">
-                                        Bal: <span className="text-brand-text">{tokenABalDisplay}</span>
-                                    </span>
-                                )}
+                                    <div className="flex items-center gap-2">
+                                        {hasAddress && tokenABalDisplay && (
+                                            <span className="font-mono">
+                                                Bal: <span className="text-brand-text">{tokenABalDisplay}</span>
+                                            </span>
+                                        )}
 
-                                <button
-                                    type="button"
-                                    onClick={onMaxA}
-                                    disabled={!hasAddress || tokenABalanceRaw === null || tokenABalanceRaw === 0n}
-                                    className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors ${!hasAddress || tokenABalanceRaw === null || tokenABalanceRaw === 0n
-                                            ? "cursor-not-allowed opacity-40"
-                                            : "text-brand-primary/90 hover:text-brand-primary hover:bg-white/5"
-                                        }`}
-                                >
-                                    MAX
-                                </button>
+                                        <button
+                                            type="button"
+                                            onClick={onMaxA}
+                                            disabled={!hasAddress || tokenABalanceRaw === null || tokenABalanceRaw === 0n}
+                                            className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors ${!hasAddress || tokenABalanceRaw === null || tokenABalanceRaw === 0n
+                                                    ? "cursor-not-allowed opacity-40"
+                                                    : "text-brand-primary/90 hover:text-brand-primary hover:bg-white/5"
+                                                }`}
+                                        >
+                                            MAX
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <input
+                                    inputMode="decimal"
+                                    placeholder="0.0"
+                                    value={amountA}
+                                    onChange={(e) => {
+                                        lastEditedRef.current = "A";
+                                        setAmountA(sanitizeAmountInput(e.target.value));
+                                    }}
+                                    className="h-11 w-full rounded-xl bg-black/20 px-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between text-[11px] text-brand-subtle">
+                                    <span>Amount ({poolMeta.tokenBSymbol})</span>
+
+                                    <div className="flex items-center gap-2">
+                                        {hasAddress && frogBalDisplay && (
+                                            <span className="font-mono">
+                                                Bal: <span className="text-brand-text">{frogBalDisplay}</span>
+                                            </span>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={onMaxFrog}
+                                            disabled={!hasAddress || tokenBBalanceRaw === null || tokenBBalanceRaw === 0n}
+                                            className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors ${!hasAddress || tokenBBalanceRaw === null || tokenBBalanceRaw === 0n
+                                                    ? "cursor-not-allowed opacity-40"
+                                                    : "text-brand-primary/90 hover:text-brand-primary hover:bg-white/5"
+                                                }`}
+                                        >
+                                            MAX
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <input
+                                    inputMode="decimal"
+                                    placeholder="0.0"
+                                    value={amountB}
+                                    onChange={(e) => {
+                                        lastEditedRef.current = "B";
+                                        setAmountB(sanitizeAmountInput(e.target.value));
+                                    }}
+                                    className="h-11 w-full rounded-xl bg-black/20 px-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
+                                />
                             </div>
                         </div>
 
-                        <input
-                            inputMode="decimal"
-                            placeholder="0.0"
-                            value={amountA}
-                            onChange={(e) => {
-                                lastEditedRef.current = "A";
-                                setAmountA(sanitizeAmountInput(e.target.value));
-                            }}
-                            className="h-11 w-full rounded-xl bg-black/20 px-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
-                        />
-                    </div>
+                        {error && <div className="text-xs text-red-300">{error}</div>}
 
-                    <div className="grid gap-2">
-                        <div className="flex items-center justify-between text-[11px] text-brand-subtle">
-                            <span>Amount ({poolMeta.tokenBSymbol})</span>
+                        <button
+                            type="button"
+                            onClick={addLiquidity}
+                            disabled={submitDisabled}
+                            className={`h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${submitDisabled
+                                    ? "cursor-not-allowed bg-black/20 text-white/45 border border-white/10 shadow-none"
+                                    : "bg-brand-primary text-black hover:scale-[1.01] shadow-[0_10px_25px_rgba(110,184,25,0.15)]"
+                                }`}
+                        >
+                            {buttonLabel}
+                        </button>
 
-                            <div className="flex items-center gap-2">
-                                {hasAddress && frogBalDisplay && (
-                                    <span className="font-mono">
-                                        Bal: <span className="text-brand-text">{frogBalDisplay}</span>
+                        <div className="text-[11px] text-brand-subtle">
+                            Slippage: {SLIPPAGE_BPS / 100}% • Earn APR Passively on LP
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="grid gap-4">
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between text-[11px] text-brand-subtle">
+                                    <span>LP Tokens</span>
+
+                                    <div className="flex items-center gap-2">
+                                        {hasAddress && lpBalDisplay && (
+                                            <span className="font-mono">
+                                                Bal: <span className="text-brand-text">{lpBalDisplay}</span>
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setRemovePct(100)}
+                                            disabled={!hasAddress || lpBalanceRaw === null || lpBalanceRaw === 0n}
+                                            className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors ${!hasAddress || lpBalanceRaw === null || lpBalanceRaw === 0n
+                                                    ? "cursor-not-allowed opacity-40"
+                                                    : "text-brand-primary/90 hover:text-brand-primary hover:bg-white/5"
+                                                }`}
+                                        >
+                                            MAX
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {[25, 50, 75, 100].map((p) => (
+                                            <button
+                                                key={p}
+                                                type="button"
+                                                onClick={() => setRemovePct(p)}
+                                                disabled={!hasAddress || lpBalanceRaw === null || lpBalanceRaw === 0n}
+                                                className={`h-8 px-3 rounded-xl text-xs font-semibold border transition-colors ${clampedRemovePct === p
+                                                        ? "bg-brand-primary/10 text-brand-text border-brand-primary/40"
+                                                        : "text-brand-subtle border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
+                                                    } ${!hasAddress || lpBalanceRaw === null || lpBalanceRaw === 0n
+                                                        ? "opacity-40 cursor-not-allowed"
+                                                        : ""
+                                                    }`}
+                                            >
+                                                {p === 100 ? "Max" : `${p}%`}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-3">
+                                        <input
+                                            type="range"
+                                            min={0}
+                                            max={100}
+                                            value={clampedRemovePct}
+                                            onChange={(e) => setRemovePct(Number(e.target.value))}
+                                            disabled={!hasAddress || lpBalanceRaw === null || lpBalanceRaw === 0n}
+                                            className="w-full"
+                                        />
+                                    </div>
+
+                                    <div className="mt-2 flex items-center justify-between text-[11px] text-brand-subtle">
+                                        <span>
+                                            Remove: <span className="text-brand-text font-semibold">{clampedRemovePct}%</span>
+                                        </span>
+
+                                        <span className="font-mono">
+                                            LP Tokens Returned:{" "}
+                                            <span className="text-brand-text">
+                                                {lpToBurnRaw > 0n ? formatTokenDisplay(lpToBurnRaw, LP_DECIMALS) : "0"}
+                                            </span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                                <div className="text-[11px] text-brand-subtle">You receive (estimated)</div>
+                                <div className="mt-1 text-xs">
+                                    <span className="text-brand-text font-mono">
+                                        {removePreview.ready
+                                            ? `${formatTokenDisplay(removePreview.outA, poolMeta.tokenADecimals)} ${poolMeta.tokenASymbol
+                                            } + ${formatTokenDisplay(removePreview.outB, poolMeta.tokenBDecimals)} ${poolMeta.tokenBSymbol
+                                            }`
+                                            : "—"}
                                     </span>
-                                )}
+                                </div>
+                            </div>
 
-                                <button
-                                    type="button"
-                                    onClick={onMaxFrog}
-                                    disabled={!hasAddress || tokenBBalanceRaw === null || tokenBBalanceRaw === 0n}
-                                    className={`text-[10px] leading-none font-semibold uppercase tracking-wide px-1.5 py-[2px] rounded transition-colors ${!hasAddress || tokenBBalanceRaw === null || tokenBBalanceRaw === 0n
-                                            ? "cursor-not-allowed opacity-40"
-                                            : "text-brand-primary/90 hover:text-brand-primary hover:bg-white/5"
-                                        }`}
-                                >
-                                    MAX
-                                </button>
+                            {error && <div className="text-xs text-red-300">{error}</div>}
+
+                            <button
+                                type="button"
+                                onClick={removeLiquidity}
+                                disabled={submitDisabled}
+                                className={`h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${submitDisabled
+                                        ? "cursor-not-allowed bg-black/20 text-white/45 border border-white/10 shadow-none"
+                                        : "bg-red-400/90 text-black hover:scale-[1.01] shadow-[0_10px_25px_rgba(110,184,25,0.15)]"
+                                    }`}
+                            >
+                                {buttonLabel}
+                            </button>
+
+                            <div className="text-[11px] text-brand-subtle">
+                                Slippage: {SLIPPAGE_BPS / 100}% • Estimates shown before fees
                             </div>
                         </div>
-
-                        <input
-                            inputMode="decimal"
-                            placeholder="0.0"
-                            value={amountB}
-                            onChange={(e) => {
-                                lastEditedRef.current = "B";
-                                setAmountB(sanitizeAmountInput(e.target.value));
-                            }}
-                            className="h-11 w-full rounded-xl bg-black/20 px-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
-                        />
-                    </div>
-                </div>
-
-                {rateLine && <div className="text-[11px] text-brand-subtle">{rateLine}</div>}
-
-                {error && <div className="text-xs text-red-300">{error}</div>}
-
-                <button
-                    type="button"
-                    onClick={addLiquidity}
-                    disabled={submitDisabled || buttonLabel !== "Add liquidity"}
-                    className={`h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 shadow-[0_10px_25px_rgba(110,184,25,0.15)] ${submitDisabled || buttonLabel !== "Add liquidity"
-                            ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle"
-                            : "bg-brand-primary text-black hover:scale-[1.01]"
-                        }`}
-                >
-                    {buttonLabel}
-                </button>
-
-                <div className="text-[11px] text-brand-subtle">
-                    Slippage: {SLIPPAGE_BPS / 100}% • Earn APR Passively on LP
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );

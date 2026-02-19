@@ -1,4 +1,5 @@
 // src/components/landing/SwapSection.tsx
+// src/components/landing/SwapSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
@@ -904,7 +905,9 @@ export function SwapSection() {
                                 type="button"
                                 onClick={handlePrimaryClick}
                                 disabled={swapDisabled}
-                                className={`h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${swapDisabled ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle" : "bg-brand-primary text-black hover:scale-[1.01]"
+                                className={`h-11 w-full rounded-2xl text-sm font-semibold border transition-transform duration-150 ${swapDisabled
+                                        ? "cursor-not-allowed bg-black/20 text-white/45 border border-white/10 shadow-none"
+                                        : "bg-brand-primary text-black border-brand-primary/30 hover:scale-[1.01] shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
                                     }`}
                             >
                                 {primaryLabel}
