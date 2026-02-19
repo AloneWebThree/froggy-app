@@ -16,8 +16,8 @@ function truncateAddr(addr: string) {
 
 function MascotCard({ badgeText }: { badgeText: string }) {
     return (
-        <div className="relative">
-            <div className="froggy-breathe relative mx-auto aspect-square w-full max-w-[22rem] md:max-w-sm rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
+        <div className="relative mx-auto w-full max-w-[22rem] md:max-w-sm">
+            <div className="froggy-breathe relative aspect-square rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
                 <div
                     className="absolute inset-0 pointer-events-none opacity-[0.10]"
                     style={{
@@ -25,6 +25,7 @@ function MascotCard({ badgeText }: { badgeText: string }) {
                             "radial-gradient(60% 60% at 50% 40%, #6eb819 0%, transparent 70%)",
                     }}
                 />
+
                 <Image
                     src={froggySamurai}
                     alt="Froggy samurai mascot"
@@ -32,15 +33,15 @@ function MascotCard({ badgeText }: { badgeText: string }) {
                     className="relative z-10 object-contain p-6"
                     priority
                 />
-            </div>
 
-            {/* Badge: safe on mobile */}
-            <div className="absolute top-2 right-2 md:-top-3 md:-right-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-[11px] font-semibold text-brand-text shadow-[0_0_10px_rgba(0,0,0,0.6)] backdrop-blur">
-                <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6EB819]" />
-                </span>
-                <span>{badgeText}</span>
+                {/* Badge: anchored to the card */}
+                <div className="absolute top-2 right-2 md:top-3 md:right-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-[11px] font-semibold text-brand-text shadow-[0_0_10px_rgba(0,0,0,0.6)] backdrop-blur">
+                    <span className="relative flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6EB819]" />
+                    </span>
+                    <span>{badgeText}</span>
+                </div>
             </div>
         </div>
     );
@@ -92,14 +93,16 @@ export function HeroSection() {
                 <div>
                     {/* Trust chips */}
                     <div className="mt-3 flex flex-wrap gap-2 text-[10px] sm:text-[11px] font-semibold">
-                        {["1B supply", "Zero tax", "Liquidity locked", "Immutable"].map((t) => (
-                            <span
-                                key={t}
-                                className="rounded-full border border-white/10 bg-brand-card/20 px-2.5 py-0.5 sm:px-3 sm:py-1 text-brand-text"
-                            >
-                                {t}
-                            </span>
-                        ))}
+                        {["1B supply", "Zero tax", "Liquidity locked", "Immutable"].map(
+                            (t) => (
+                                <span
+                                    key={t}
+                                    className="rounded-full border border-white/10 bg-brand-card/20 px-2.5 py-0.5 sm:px-3 sm:py-1 text-brand-text"
+                                >
+                                    {t}
+                                </span>
+                            )
+                        )}
                     </div>
 
                     <h1 className="mt-4 text-4xl md:text-6xl font-extrabold leading-tight">
@@ -111,7 +114,8 @@ export function HeroSection() {
                     </h1>
 
                     <p className="mt-4 text-brand-subtle max-w-prose">
-                        $FROG on Sei EVM. Check in daily. Build streaks. Earn more over time.
+                        $FROG on Sei EVM. On-chain daily check-ins. Build streaks. Compound
+                        rewards.
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-3">
@@ -122,9 +126,10 @@ export function HeroSection() {
                             FrogSwap
                         </a>
 
+                        {/* OUTLINED secondary for hierarchy */}
                         <Link
                             href="/dashboard"
-                            className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] bg-brand-secondary text-brand-bg"
+                            className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] border border-white/15 bg-brand-card/10 text-brand-text hover:bg-brand-card/20 focus:outline-none focus:ring-2 focus:ring-white/10"
                         >
                             Dashboard
                         </Link>
@@ -174,6 +179,7 @@ export function HeroSection() {
                                 <button
                                     type="button"
                                     onClick={onCopy}
+                                    aria-label="Copy token contract address"
                                     className="rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-semibold text-brand-text hover:bg-black/40 transition"
                                 >
                                     {copied ? "Copied" : "Copy"}
@@ -194,7 +200,9 @@ export function HeroSection() {
                         <div className="hidden md:block rounded-2xl border border-white/10 bg-brand-card/15 px-4 py-3">
                             <div className="flex items-center justify-between">
                                 <div className="text-xs text-brand-subtle leading-snug">
-                                    <div className="font-semibold text-brand-text">Token Contract</div>
+                                    <div className="font-semibold text-brand-text">
+                                        Token Contract
+                                    </div>
                                     <div className="mt-1 flex items-center gap-2">
                                         <code className="select-all text-brand-text">
                                             {truncateAddr(frog)}
@@ -203,6 +211,7 @@ export function HeroSection() {
                                         <button
                                             type="button"
                                             onClick={onCopy}
+                                            aria-label="Copy token contract address"
                                             className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] font-semibold text-brand-text hover:bg-black/40 transition"
                                         >
                                             {copied ? "Copied" : "Copy"}
