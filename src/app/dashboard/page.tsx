@@ -1,14 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import Link from "next/link";
 import {
     useAccount,
     useReadContract,
+    useSimulateContract,
     useWriteContract,
     useWaitForTransactionReceipt,
 } from "wagmi";
+
 import { WalletButton } from "@/components/WalletButton";
 import LiveStats from "@/components/LiveStats";
 
@@ -21,20 +23,54 @@ import {
 } from "@/lib/froggyConfig";
 
 import { requireAddress } from "@/lib/swap/tokenRegistry";
-import { normalizeUserState, type UserStateTuple } from "@/features/streak/normalizeUserState";
+import {
+    normalizeUserState,
+    type UserStateTuple,
+} from "@/features/streak/normalizeUserState";
+
+function shortAddr(addr?: `0x${string}`) {
+    if (!addr) return "";
+    const s = addr.toString();
+    if (s.length <= 10) return s;
+    return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+function pickErrorMessage(err: unknown): string | null {
+    if (!err || typeof err !== "object") return null;
+
+    // Narrow safely
+    if ("shortMessage" in err && typeof err.shortMessage === "string") {
+        return err.shortMessage;
+    }
+
+    if (
+        "cause" in err &&
+        typeof err.cause === "object" &&
+        err.cause !== null &&
+        "shortMessage" in err.cause &&
+        typeof err.cause.shortMessage === "string"
+    ) {
+        return err.cause.shortMessage;
+    }
+
+    if ("details" in err && typeof err.details === "string") {
+        return err.details;
+    }
+
+    if ("message" in err && typeof err.message === "string") {
+        return err.message;
+    }
+
+    return null;
+}
 
 export default function DashboardPage() {
     const { address, isConnected, chainId } = useAccount();
 
     const isOnSeiEvm = chainId === SEI_EVM_CHAIN_ID;
-    const wrongNetwork =
-        chainId !== undefined && chainId !== null && !isOnSeiEvm;
+    const wrongNetwork = chainId != null && !isOnSeiEvm;
 
-    const shortAddress = useMemo(() => {
-        if (!address) return "";
-        if (address.length <= 10) return address;
-        return `${address.slice(0, 6)}…${address.slice(-4)}`;
-    }, [address]);
+    const shortAddress = useMemo(() => shortAddr(address), [address]);
 
     // ===== READ: getUserState (streak contract) =====
     const {
@@ -48,9 +84,7 @@ export default function DashboardPage() {
         abi: FROGGY_STREAK_ABI,
         functionName: "getUserState",
         args: [address ?? ZERO_ADDRESS],
-        query: {
-            enabled: !!address && !wrongNetwork,
-        },
+        query: { enabled: !!address && !wrongNetwork },
     });
 
     const {
@@ -67,8 +101,6 @@ export default function DashboardPage() {
     useEffect(() => {
         const nowSeconds = Date.now() / 1000;
         const dayIndex = Math.floor(nowSeconds / 86400);
-
-        // wrap state update in a microtask for safer hydration
         Promise.resolve().then(() => setCurrentUtcDay(dayIndex));
     }, []);
 
@@ -80,91 +112,63 @@ export default function DashboardPage() {
 
     const lastCheckInSummary = useMemo(() => {
         if (isLoadingUser || wrongNetwork) return "";
-        if (
-            lastCheckInDay === null ||
-            currentUtcDay === null ||
-            totalCheckIns === 0
-        ) {
+        if (lastCheckInDay === null || currentUtcDay === null || totalCheckIns === 0) {
             return "No check-ins yet.";
         }
 
         const diff = currentUtcDay - lastCheckInDay;
-
         if (diff === 0) return "Last check-in: today.";
         if (diff === 1) return "Last check-in: yesterday.";
         if (diff > 1) return `Last check-in: ${diff} days ago.`;
-
-        // Fallback for any weirdness
         return "Last check-in: recently.";
     }, [isLoadingUser, wrongNetwork, lastCheckInDay, currentUtcDay, totalCheckIns]);
 
-    // ===== Milestone badges (replaces streak history) =====
+    // ===== Milestone badges =====
     const milestoneBadges = useMemo(() => {
         const milestones = [7, 14, 21, 30, 60, 90];
-
         return milestones.map((m) => {
             const earned = bestStreak >= m;
-
-            // progress is based on current streak (so it feels "live"),
-            // but earning is based on best streak (so badges don't disappear)
-            const progress = earned
-                ? 1
-                : currentStreak > 0
-                    ? Math.min(currentStreak / m, 1)
-                    : 0;
-
-            return {
-                days: m,
-                earned,
-                progress, // 0..1
-            };
+            const progress = earned ? 1 : currentStreak > 0 ? Math.min(currentStreak / m, 1) : 0;
+            return { days: m, earned, progress };
         });
     }, [bestStreak, currentStreak]);
 
     const streakStatus = useMemo(
         () =>
             currentStreak === 0
-                ? {
-                    label: "Inactive",
-                    tone: "bg-red-500/15 text-red-300 border-red-500/30",
-                }
+                ? { label: "Inactive", tone: "bg-red-500/15 text-red-300 border-red-500/30" }
                 : {
                     label: "Active",
                     tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/40",
                 },
-        [currentStreak],
+        [currentStreak]
     );
 
-    // ===== READ: FROG token balance =====
-    const { data: frogBalanceRaw, isLoading: isLoadingBalance } =
-        useReadContract({
-            chainId: SEI_EVM_CHAIN_ID,
-            address: requireAddress("FROG"),
-            abi: ERC20_ABI,
-            functionName: "balanceOf",
-            args: [address ?? ZERO_ADDRESS],
-            query: { enabled: !!address && !wrongNetwork },
-        });
+    // ===== READ: FROG token balance + decimals =====
+    const { data: frogBalanceRaw, isLoading: isLoadingBalance } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: requireAddress("FROG"),
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [address ?? ZERO_ADDRESS],
+        query: { enabled: !!address && !wrongNetwork },
+    });
 
-    const { data: frogDecimalsRaw, isLoading: isLoadingDecimals } =
-        useReadContract({
-            chainId: SEI_EVM_CHAIN_ID,
-            address: requireAddress("FROG"),
-            abi: ERC20_ABI,
-            functionName: "decimals",
-            args: [],
-            query: { enabled: !wrongNetwork },
-        });
+    const { data: frogDecimalsRaw, isLoading: isLoadingDecimals } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: requireAddress("FROG"),
+        abi: ERC20_ABI,
+        functionName: "decimals",
+        args: [],
+        query: { enabled: !wrongNetwork },
+    });
 
     const isBalanceLoading = isLoadingBalance || isLoadingDecimals;
 
     const frogBalance = useMemo(() => {
         if (!frogBalanceRaw || frogDecimalsRaw === undefined) return 0;
 
-        const decimals =
-            typeof frogDecimalsRaw === "number"
-                ? frogDecimalsRaw
-                : Number(frogDecimalsRaw);
+        const decimals = typeof frogDecimalsRaw === "number" ? frogDecimalsRaw : Number(frogDecimalsRaw);
 
         try {
             return Number(formatUnits(frogBalanceRaw as bigint, decimals));
@@ -173,103 +177,126 @@ export default function DashboardPage() {
         }
     }, [frogBalanceRaw, frogDecimalsRaw]);
 
-    // Check if current raw balance > lastRecordedBalance (both in raw units)
-    const hasIncreasedBalance: boolean = useMemo(() => {
+    // Rule gate: current raw balance must be > lastRecordedBalance (both raw units)
+    const hasIncreasedBalance = useMemo((): boolean => {
         if (frogBalanceRaw === undefined || frogBalanceRaw === null) return false;
-        if (lastRecordedBalance === null) return true; // first time, contract will enforce rules
+        if (lastRecordedBalance === null) return true;
         return (frogBalanceRaw as bigint) > lastRecordedBalance;
     }, [frogBalanceRaw, lastRecordedBalance]);
 
-    // ===== WRITE: checkIn() =====
-    const { data: txHash, writeContract, isPending: isCheckInPending } =
-        useWriteContract();
+    // ===== WRITE: checkIn() with simulation-first (production safe) =====
+    const shouldEnableCheckIn = useMemo(() => {
+        return (
+            !!address &&
+            !wrongNetwork &&
+            !isBalanceLoading &&
+            !hasCheckedInToday &&
+            frogBalanceRaw != null &&
+            hasIncreasedBalance
+        );
+    }, [
+        address,
+        wrongNetwork,
+        isBalanceLoading,
+        hasCheckedInToday,
+        frogBalanceRaw,
+        hasIncreasedBalance,
+    ]);
+
+    const {
+        data: sim,
+        error: simError,
+        isLoading: isSimulating,
+        refetch: refetchSim,
+    } = useSimulateContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: FROGGY_STREAK_ADDRESS,
+        abi: FROGGY_STREAK_ABI,
+        functionName: "checkIn",
+        account: address, // ensures msg.sender-specific logic is evaluated correctly
+        query: { enabled: shouldEnableCheckIn },
+    });
+
+    const {
+        data: txHash,
+        writeContractAsync,
+        error: writeError,
+        isPending: isCheckInPending,
+    } = useWriteContract();
 
     const { isLoading: isConfirmingTx, isSuccess: isTxConfirmed } =
         useWaitForTransactionReceipt({
+            chainId: SEI_EVM_CHAIN_ID,
             hash: txHash,
             query: { enabled: !!txHash },
         });
 
     // After confirmed check-in tx, refetch streak state
     useEffect(() => {
-        if (isTxConfirmed) {
-            refetchUserState();
-        }
+        if (isTxConfirmed) refetchUserState();
     }, [isTxConfirmed, refetchUserState]);
 
-    const handleCheckIn = () => {
-        if (
-            !address ||
-            wrongNetwork ||
-            isBalanceLoading ||
-            hasCheckedInToday ||
-            frogBalanceRaw == null ||
-            !hasIncreasedBalance
-        ) {
-            return;
-        }
+    const txErrorMessage = useMemo(
+        () => pickErrorMessage(simError) || pickErrorMessage(writeError),
+        [simError, writeError]
+    );
 
-        writeContract({
-            address: FROGGY_STREAK_ADDRESS,
-            abi: FROGGY_STREAK_ABI,
-            functionName: "checkIn",
-            account: address,
-        });
+    const handleCheckIn = async () => {
+        if (!shouldEnableCheckIn) return;
+
+        // Force a fresh sim right before sending (avoids stale state)
+        const fresh = await refetchSim();
+        const request = fresh.data?.request ?? sim?.request;
+        if (!request) return;
+
+        await writeContractAsync(request);
     };
 
     const checkInDisabled =
         !isConnected ||
         wrongNetwork ||
         isBalanceLoading ||
+        isSimulating ||
         isCheckInPending ||
         isConfirmingTx ||
         hasCheckedInToday ||
         frogBalanceRaw == null ||
-        !hasIncreasedBalance;
+        !hasIncreasedBalance ||
+        !!simError;
 
     const checkInLabel = useMemo(() => {
         if (!isConnected) return "Connect wallet to check in";
         if (wrongNetwork) return "Switch to Sei EVM";
         if (isBalanceLoading) return "Loading balance…";
         if (frogBalanceRaw == null) return "Cannot load balance…";
+        if (isSimulating) return "Preparing…";
         if (isCheckInPending || isConfirmingTx) return "Checking in...";
         if (hasCheckedInToday) return "Checked in ✓";
         if (!hasIncreasedBalance) return "Increase your FROG balance to check in";
+        if (simError) return "Cannot check in (see error)";
         return "Check in";
     }, [
         isConnected,
         wrongNetwork,
         isBalanceLoading,
         frogBalanceRaw,
+        isSimulating,
         isCheckInPending,
         isConfirmingTx,
         hasCheckedInToday,
         hasIncreasedBalance,
+        simError,
     ]);
 
     const checkInColor: string = (() => {
-        if (!isConnected) {
-            return "bg-[#3c3c3c] text-white/60 border border-white/10";
-        }
-        if (wrongNetwork) {
-            return "bg-yellow-500 text-black hover:bg-yellow-400";
-        }
-        if (isBalanceLoading) {
-            return "bg-brand-primary/40 text-black/60 animate-pulse";
-        }
-        if (frogBalanceRaw == null) {
-            // If bg-yellow-250 isn't in your Tailwind theme, replace with bg-yellow-300 (or your preferred token).
-            return "bg-yellow-300 text-black hover:bg-yellow-200";
-        }
-        if (isCheckInPending || isConfirmingTx) {
-            return "bg-brand-primary/70 text-black animate-pulse";
-        }
-        if (hasCheckedInToday) {
-            return "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
-        }
-        if (!hasIncreasedBalance) {
-            return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
-        }
+        if (!isConnected) return "bg-[#3c3c3c] text-white/60 border border-white/10";
+        if (wrongNetwork) return "bg-yellow-500 text-black hover:bg-yellow-400";
+        if (isBalanceLoading || isSimulating) return "bg-brand-primary/40 text-black/60 animate-pulse";
+        if (frogBalanceRaw == null) return "bg-yellow-300 text-black hover:bg-yellow-200";
+        if (isCheckInPending || isConfirmingTx) return "bg-brand-primary/70 text-black animate-pulse";
+        if (hasCheckedInToday) return "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
+        if (!hasIncreasedBalance) return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
+        if (simError) return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
         return "bg-brand-primary text-[#081318] hover:scale-[1.02]";
     })();
 
@@ -315,8 +342,7 @@ export default function DashboardPage() {
                             <div>
                                 <h2 className="text-lg font-semibold">Connect your wallet</h2>
                                 <p className="mt-2 text-sm text-brand-subtle">
-                                    Connect a Sei EVM wallet to start tracking your streak and unlocking
-                                    rewards.
+                                    Connect a Sei EVM wallet to start tracking your streak and unlocking rewards.
                                 </p>
 
                                 <ol className="mt-4 space-y-1.5 text-xs text-brand-subtle">
@@ -345,9 +371,7 @@ export default function DashboardPage() {
                             {/* Wallet card */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-5">
                                 <div className="flex items-center justify-between gap-3">
-                                    <h2 className="text-sm font-semibold tracking-tight">
-                                        Your wallet
-                                    </h2>
+                                    <h2 className="text-sm font-semibold tracking-tight">Your wallet</h2>
 
                                     <div className="flex items-center gap-2">
                                         <Link
@@ -389,14 +413,13 @@ export default function DashboardPage() {
                                     </div>
 
                                     <p className="mt-1 text-xs text-brand-subtle">
-                                        This address is used to track your streaks and send rewards once
-                                        they go live.
+                                        This address is used to track your streaks and send rewards once they go live.
                                     </p>
 
                                     {wrongNetwork && (
                                         <p className="mt-3 text-xs text-yellow-300">
-                                            You are on the wrong network. Switch to the Sei EVM mainnet
-                                            (chain ID {SEI_EVM_CHAIN_ID}) to use streaks.
+                                            You are on the wrong network. Switch to the Sei EVM mainnet (chain ID{" "}
+                                            {SEI_EVM_CHAIN_ID}) to use streaks.
                                         </p>
                                     )}
                                 </div>
@@ -405,9 +428,7 @@ export default function DashboardPage() {
                             {/* Streak status card */}
                             <div className="rounded-2xl border border-white/10 bg-brand-card/80 p-5">
                                 <div className="flex items-center justify-between gap-3">
-                                    <h2 className="text-sm font-semibold tracking-tight">
-                                        Streak status
-                                    </h2>
+                                    <h2 className="text-sm font-semibold tracking-tight">Streak status</h2>
                                     <span
                                         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${streakStatus.tone}`}
                                     >
@@ -417,20 +438,17 @@ export default function DashboardPage() {
                                 </div>
 
                                 <div className="mt-3 text-sm">
-                                    <p className="text-brand-subtle text-xs">
-                                        Daily reset time: 00:00 UTC
-                                    </p>
+                                    <p className="text-brand-subtle text-xs">Daily reset time: 00:00 UTC</p>
                                     <p className="mt-1 text-xs text-brand-subtle">
                                         Missing a day will reset your current streak back to 1.
                                     </p>
                                     <p className="mt-1 text-[11px] text-brand-subtle">
-                                        Streak rule: your FROG balance must be higher than it was at your
-                                        last successful check-in.
+                                        Streak rule: your FROG balance must be higher than it was at your last successful
+                                        check-in.
                                     </p>
                                     {isUserError && !wrongNetwork && (
                                         <p className="mt-2 text-xs text-red-400">
-                                            Could not load streak data. Make sure you&apos;re on the
-                                            correct network.
+                                            Could not load streak data. Make sure you&apos;re on the correct network.
                                         </p>
                                     )}
                                 </div>
@@ -456,9 +474,7 @@ export default function DashboardPage() {
                                 <div className="mt-2 text-3xl font-bold">
                                     {isLoadingUser || wrongNetwork ? "…" : currentStreak}
                                     {!isLoadingUser && !wrongNetwork && currentStreak > 0 && (
-                                        <span className="ml-1 text-base font-semibold text-brand-subtle">
-                                            d
-                                        </span>
+                                        <span className="ml-1 text-base font-semibold text-brand-subtle">d</span>
                                     )}
                                 </div>
 
@@ -467,9 +483,7 @@ export default function DashboardPage() {
                                 </div>
 
                                 {!isLoadingUser && !wrongNetwork && (
-                                    <div className="mt-0.5 text-[11px] text-brand-subtle/80">
-                                        {lastCheckInSummary}
-                                    </div>
+                                    <div className="mt-0.5 text-[11px] text-brand-subtle/80">{lastCheckInSummary}</div>
                                 )}
                             </div>
 
@@ -492,14 +506,10 @@ export default function DashboardPage() {
                                 <div className="mt-2 text-3xl font-bold">
                                     {isLoadingUser || wrongNetwork ? "…" : bestStreak}
                                     {!isLoadingUser && !wrongNetwork && bestStreak > 0 && (
-                                        <span className="ml-1 text-base font-semibold text-brand-subtle">
-                                            d
-                                        </span>
+                                        <span className="ml-1 text-base font-semibold text-brand-subtle">d</span>
                                     )}
                                 </div>
-                                <div className="mt-1 text-xs text-brand-subtle">
-                                    Your longest streak so far.
-                                </div>
+                                <div className="mt-1 text-xs text-brand-subtle">Your longest streak so far.</div>
                             </div>
 
                             {/* Total check-ins */}
@@ -509,16 +519,10 @@ export default function DashboardPage() {
                                     <span>Total check-ins</span>
                                 </div>
                                 <div className="mt-2 text-3xl font-bold flex items-baseline gap-1">
-                                    <span>
-                                        {isLoadingUser || wrongNetwork ? "…" : totalCheckIns}
-                                    </span>
-                                    {!isLoadingUser &&
-                                        !wrongNetwork &&
-                                        totalCheckIns > 0 && (
-                                            <span className="text-base font-semibold text-brand-subtle">
-                                                checks
-                                            </span>
-                                        )}
+                                    <span>{isLoadingUser || wrongNetwork ? "…" : totalCheckIns}</span>
+                                    {!isLoadingUser && !wrongNetwork && totalCheckIns > 0 && (
+                                        <span className="text-base font-semibold text-brand-subtle">checks</span>
+                                    )}
                                 </div>
                                 <div className="mt-1 text-xs text-brand-subtle">
                                     Successful daily check-ins recorded on-chain.
@@ -547,17 +551,25 @@ export default function DashboardPage() {
                                         onClick={handleCheckIn}
                                         disabled={checkInDisabled}
                                         className={`rounded-xl px-5 py-2.5 text-sm font-semibold
-                                        transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50
-                                        disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed
-                                        hover:translate-y-[-1px] active:translate-y-[0px]
-                                        ${checkInColor}`}
+                      transition-transform focus:outline-none focus:ring-2 focus:ring-brand-primary/50
+                      disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed
+                      hover:translate-y-[-1px] active:translate-y-[0px]
+                      ${checkInColor}`}
                                     >
                                         {checkInLabel}
                                     </button>
+
+                                    {/* Production-grade error surfacing */}
+                                    {txErrorMessage && !wrongNetwork && (
+                                        <div className="mt-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">
+                                            <div className="font-semibold mb-1">Check-in error</div>
+                                            <div className="break-words">{txErrorMessage}</div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Milestone badges (replaces streak history) */}
+                            {/* Milestone badges */}
                             <section className="mt-2 rounded-2xl border border-white/10 bg-brand-card/70 p-6">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
@@ -569,13 +581,11 @@ export default function DashboardPage() {
                                     </div>
 
                                     <span className="hidden sm:inline-flex items-center rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-medium text-brand-subtle border border-white/10">
-                                        {isLoadingUser || wrongNetwork
-                                            ? "Loading…"
-                                            : `Best: ${bestStreak}d`}
+                                        {isLoadingUser || wrongNetwork ? "Loading…" : `Best: ${bestStreak}d`}
                                     </span>
                                 </div>
 
-                                {(wrongNetwork || isLoadingUser) ? (
+                                {wrongNetwork || isLoadingUser ? (
                                     <p className="mt-4 text-xs text-brand-subtle leading-tight">
                                         Connect on Sei EVM to view badge progress.
                                     </p>
@@ -588,24 +598,17 @@ export default function DashboardPage() {
                                                     : "border-white/10 bg-black/10 text-brand-subtle";
 
                                                 return (
-                                                    <div
-                                                        key={b.days}
-                                                        className={`rounded-xl border p-3 text-center ${tone}`}
-                                                    >
+                                                    <div key={b.days} className={`rounded-xl border p-3 text-center ${tone}`}>
                                                         <div className="text-[11px] uppercase tracking-wide opacity-80">
                                                             {b.earned ? "Unlocked" : "Locked"}
                                                         </div>
 
-                                                        <div className="mt-1 text-lg font-bold">
-                                                            {b.days}d
-                                                        </div>
+                                                        <div className="mt-1 text-lg font-bold">{b.days}d</div>
 
                                                         <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                                                             <div
                                                                 className="h-full rounded-full bg-brand-primary"
-                                                                style={{
-                                                                    width: `${Math.round(b.progress * 100)}%`,
-                                                                }}
+                                                                style={{ width: `${Math.round(b.progress * 100)}%` }}
                                                             />
                                                         </div>
 
@@ -637,9 +640,8 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-xs text-brand-subtle">
-                                        Once streak milestones are live, you&apos;ll be able to claim
-                                        on-chain rewards here based on your best streak and total
-                                        check-ins.
+                                        Once streak milestones are live, you&apos;ll be able to claim on-chain rewards here
+                                        based on your best streak and total check-ins.
                                     </p>
                                 </div>
 
