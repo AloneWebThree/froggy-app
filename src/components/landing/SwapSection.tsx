@@ -831,7 +831,7 @@ export function SwapSection() {
                                 <input
                                     inputMode="decimal"
                                     placeholder="0.0"
-                                    className={`h-11 w-full box-border rounded-xl bg-black/20 px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-inset ${insufficientBalance ? "focus:ring-red-500/30" : "focus:ring-brand-primary/30"
+                                    className={`h-11 w-full box-border rounded-xl bg-black/20 px-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-inset ${insufficientBalance ? "focus:ring-red-500/30" : "focus:ring-brand-primary/30"
                                         }`}
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
