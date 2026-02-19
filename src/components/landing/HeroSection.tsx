@@ -17,7 +17,7 @@ function truncateAddr(addr: string) {
 function MascotCard({ badgeText }: { badgeText: string }) {
     return (
         <div className="relative mx-auto w-full max-w-[22rem] md:max-w-sm">
-            <div className="froggy-breathe relative aspect-square rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
+            <div className="froggy-breathe relative aspect-square rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden transition-transform duration-200 hover:-translate-y-0.5">
                 <div
                     className="absolute inset-0 pointer-events-none opacity-[0.10]"
                     style={{
@@ -37,7 +37,7 @@ function MascotCard({ badgeText }: { badgeText: string }) {
                 {/* Badge: anchored to the card */}
                 <div className="absolute top-2 right-2 md:top-3 md:right-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-[11px] font-semibold text-brand-text shadow-[0_0_10px_rgba(0,0,0,0.6)] backdrop-blur">
                     <span className="relative flex h-2.5 w-2.5">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-50 animate-ping [animation-duration:1.6s]" />
                         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6EB819]" />
                     </span>
                     <span>{badgeText}</span>
@@ -106,7 +106,7 @@ export function HeroSection() {
                     </div>
 
                     <h1 className="mt-4 text-4xl md:text-6xl font-extrabold leading-tight">
-                        <span className="whitespace-nowrap">
+                        <span className="sm:whitespace-nowrap">
                             Earn <span className="text-brand-primary">daily</span> rewards.
                         </span>
                         <br />
@@ -119,12 +119,12 @@ export function HeroSection() {
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-3">
-                        <a
-                            href="#swap"
+                        <Link
+                            href="/#swap"
                             className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/40 bg-brand-primary text-brand-bg"
                         >
                             FrogSwap
-                        </a>
+                        </Link>
 
                         {/* OUTLINED secondary for hierarchy */}
                         <Link
