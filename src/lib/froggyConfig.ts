@@ -9,8 +9,13 @@ export const ZERO_ADDRESS =
 export const FROG_TOKEN_ADDRESS =
   "0xF9BDbF259eCe5ae17e29BF92EB7ABd7B8b465Db9" as const;
 
+// FROG/WSEI pair
 export const FROG_PAIR_ADDRESS =
   "0x373e718e54e73fb462fec3a73e9645efea280b84" as const;
+
+// NEW: USDY/FROG pair (FILL THIS IN)
+export const USDY_FROG_PAIR_ADDRESS =
+  "0x6B52aBe2414CC0fbff24b5a7d25bC6A37c44Bc31" as const;
 
 // V1: 0xB5668295f6A7174ca3813fFf59f822B595Cf65fE (for reference)
 // V2 (current): 0x691ada7728fD5BDC50203d58dA3AbF2BC91c5C41
@@ -39,7 +44,8 @@ export const DRG_TOKEN_ADDRESS =
 // Convenience object used by the landing page today
 export const ADDR = {
   token: FROG_TOKEN_ADDRESS,
-  pair: FROG_PAIR_ADDRESS,
+  pair: FROG_PAIR_ADDRESS, // FROG/WSEI
+  usdyFrogPair: USDY_FROG_PAIR_ADDRESS, // USDY/FROG
 } as const;
 
 // ===== URLs (DEX, explorers, etc.) =====
@@ -118,6 +124,7 @@ export const ERC20_ABI = [
 ] as const;
 
 export const DRAGON_ROUTER_ABI = [
+  // ===== Swaps =====
   {
     name: "swapExactSEIForTokens",
     type: "function",
@@ -168,5 +175,74 @@ export const DRAGON_ROUTER_ABI = [
       { name: "path", type: "address[]" },
     ],
     outputs: [{ name: "amounts", type: "uint256[]" }],
+  },
+
+  // ===== Liquidity (UniswapV2-style) =====
+  {
+    name: "addLiquidity",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "tokenA", type: "address" },
+      { name: "tokenB", type: "address" },
+      { name: "amountADesired", type: "uint256" },
+      { name: "amountBDesired", type: "uint256" },
+      { name: "amountAMin", type: "uint256" },
+      { name: "amountBMin", type: "uint256" },
+      { name: "to", type: "address" },
+      { name: "deadline", type: "uint256" },
+    ],
+    outputs: [
+      { name: "amountA", type: "uint256" },
+      { name: "amountB", type: "uint256" },
+      { name: "liquidity", type: "uint256" },
+    ],
+  },
+  {
+    name: "addLiquiditySEI",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "amountTokenDesired", type: "uint256" },
+      { name: "amountTokenMin", type: "uint256" },
+      { name: "amountSEIMin", type: "uint256" },
+      { name: "to", type: "address" },
+      { name: "deadline", type: "uint256" },
+    ],
+    outputs: [
+      { name: "amountToken", type: "uint256" },
+      { name: "amountSEI", type: "uint256" },
+      { name: "liquidity", type: "uint256" },
+    ],
+  },
+  {
+    name: "removeLiquidity",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "tokenA", type: "address" },
+      { name: "tokenB", type: "address" },
+      { name: "liquidity", type: "uint256" },
+      { name: "amountAMin", type: "uint256" },
+      { name: "amountBMin", type: "uint256" },
+      { name: "to", type: "address" },
+      { name: "deadline", type: "uint256" },
+    ],
+    outputs: [{ name: "amountA", type: "uint256" }, { name: "amountB", type: "uint256" }],
+  },
+  {
+    name: "removeLiquiditySEI",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "liquidity", type: "uint256" },
+      { name: "amountTokenMin", type: "uint256" },
+      { name: "amountSEIMin", type: "uint256" },
+      { name: "to", type: "address" },
+      { name: "deadline", type: "uint256" },
+    ],
+    outputs: [{ name: "amountToken", type: "uint256" }, { name: "amountSEI", type: "uint256" }],
   },
 ] as const;

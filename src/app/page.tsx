@@ -8,6 +8,7 @@ import { GallerySection } from "@/components/landing/GallerySection";
 import { MainHeader } from "@/components/MainHeader";
 import { TokenSection } from "@/components/landing/TokenSection";
 import { RoadmapSection } from "@/components/landing/RoadmapSection";
+import { LiquidityLandingSection } from "@/components/landing/LiquidityLandingSection";
 
 
 export default function FroggyLanding() {
@@ -24,6 +25,9 @@ export default function FroggyLanding() {
 
             {/* Swap */}
             <SwapSection />
+
+            {/* Liquidity */}
+            <LiquidityLandingSection />
 
             {/* Gallery */}
             <GallerySection />

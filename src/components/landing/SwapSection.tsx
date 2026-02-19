@@ -761,7 +761,7 @@ export function SwapSection() {
                             </h3>
                             <p className="mt-1 text-xs text-brand-subtle">{helpLine}</p>
                         </div>
-                        <Image src="/froggy-cape.png" width={88} height={88} className="rounded-full shrink-0" alt="Froggy icon" />
+                        <Image src="/froggy-cape.png" width={80} height={80} className="rounded-full shrink-0" alt="Froggy icon" />
                     </div>
 
                     <div className="mt-4 flex-1 overflow-y-auto overflow-x-hidden pr-4" style={{ scrollbarGutter: "stable" }}>
