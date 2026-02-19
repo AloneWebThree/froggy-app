@@ -161,12 +161,14 @@ export function SwapSection() {
 
     useEffect(() => {
         if (!showErrorToast) return;
+
         const t = setTimeout(() => {
             setShowErrorToast(false);
             setErrorToastMessage(undefined);
-        }, 900);
+        }, 5000);
+
         return () => clearTimeout(t);
-    }, [amount, fromSymbol, toSymbol, showErrorToast]);
+    }, [showErrorToast, debouncedAmount, fromSymbol, toSymbol]);
 
     const { allowedToSymbols, path: v2Path, outDecimals } = useSwapRouting(fromSymbol, toSymbol);
 
