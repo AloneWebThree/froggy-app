@@ -10,7 +10,7 @@ export function LiquidityLandingSection() {
                 <div className="min-w-0">
                     <h2 className="text-2xl md:text-3xl font-bold">Liquidity</h2>
                     <p className="mt-2 text-slate-300/90 text-sm leading-snug">
-                        Add liquidity to the SEI/FROG and USDY/FROG pools to help strengthen the market.
+                        Add or Remove liquidity from $Frog pools
                     </p>
                 </div>
 
