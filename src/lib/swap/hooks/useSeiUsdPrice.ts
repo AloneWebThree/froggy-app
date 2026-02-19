@@ -2,38 +2,37 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-type SeiPriceResponse = {
-  price?: number;
-  sei?: { usd?: number };
-};
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function asFiniteNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  return null;
+}
 
 function parsePrice(data: unknown): number | null {
-  if (!data || typeof data !== "object") return null;
-  const obj = data as any;
+  if (!isRecord(data)) return null;
 
   // ✅ matches your current API response shape
-  if (typeof obj.seiUsd === "number" && Number.isFinite(obj.seiUsd)) {
-    return obj.seiUsd;
-  }
+  const seiUsd = asFiniteNumber(data["seiUsd"]);
+  if (seiUsd !== null) return seiUsd;
 
-  // fallback shapes (safe to keep)
-  if (typeof obj.price === "number" && Number.isFinite(obj.price)) {
-    return obj.price;
-  }
+  // fallback shapes
+  const price = asFiniteNumber(data["price"]);
+  if (price !== null) return price;
 
-  if (
-    obj.sei &&
-    typeof obj.sei.usd === "number" &&
-    Number.isFinite(obj.sei.usd)
-  ) {
-    return obj.sei.usd;
+  const sei = data["sei"];
+  if (isRecord(sei)) {
+    const usd = asFiniteNumber(sei["usd"]);
+    if (usd !== null) return usd;
   }
 
   return null;
 }
 
 async function fetchSeiUsd(): Promise<number> {
-  const res = await fetch("/api/sei-price");
+  const res = await fetch("/api/sei-price", { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch SEI price");
 
   const data: unknown = await res.json();

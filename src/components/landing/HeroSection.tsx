@@ -2,25 +2,81 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 
 import { requireAddress } from "@/lib/swap/tokenRegistry";
-
 import { brand } from "@/lib/brand";
 import froggySamurai from "@public/gallery/froggy-samurai.png";
+
+function truncateAddr(addr: string) {
+    if (!addr || addr.length < 10) return addr;
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function MascotCard({ badgeText }: { badgeText: string }) {
+    return (
+        <div className="relative">
+            <div className="froggy-breathe relative mx-auto aspect-square w-full max-w-[22rem] md:max-w-sm rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
+                <div
+                    className="absolute inset-0 pointer-events-none opacity-[0.10]"
+                    style={{
+                        background:
+                            "radial-gradient(60% 60% at 50% 40%, #6eb819 0%, transparent 70%)",
+                    }}
+                />
+                <Image
+                    src={froggySamurai}
+                    alt="Froggy samurai mascot"
+                    fill
+                    className="relative z-10 object-contain p-6"
+                    priority
+                />
+            </div>
+
+            {/* Badge: safe on mobile */}
+            <div className="absolute top-2 right-2 md:-top-3 md:-right-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-[11px] font-semibold text-brand-text shadow-[0_0_10px_rgba(0,0,0,0.6)] backdrop-blur">
+                <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6EB819]" />
+                </span>
+                <span>{badgeText}</span>
+            </div>
+        </div>
+    );
+}
 
 export function HeroSection() {
     const { isConnected } = useAccount();
 
-    // HYDRATION FIX: treat as disconnected until after mount
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMounted(true);
     }, []);
 
-    const dashboardEnabled = mounted && isConnected;
+    const frog = useMemo(() => requireAddress("FROG"), []);
+    const [copied, setCopied] = useState(false);
+
+    const explorerBase =
+        process.env.NEXT_PUBLIC_SEI_EXPLORER_BASE_URL?.replace(/\/+$/, "") ||
+        "https://seitrace.com";
+    const explorerUrl = `${explorerBase}/address/${frog}`;
+
+    const liveStatText = mounted
+        ? isConnected
+            ? "Live • wallet connected"
+            : "Live • connect to track streaks"
+        : "Live • loading…";
+
+    async function onCopy() {
+        try {
+            await navigator.clipboard.writeText(frog);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1200);
+        } catch {
+            setCopied(false);
+        }
+    }
 
     return (
         <section id="home" className="relative">
@@ -30,20 +86,32 @@ export function HeroSection() {
                     background: `radial-gradient(60% 60% at 50% 20%, ${brand.secondary}22 0%, transparent 60%), radial-gradient(40% 40% at 80% 10%, ${brand.primary}22 0%, transparent 60%)`,
                 }}
             />
+
             <div className="mx-auto max-w-6xl px-4 py-8 md:py-16 grid md:grid-cols-2 gap-10 items-center">
+                {/* LEFT */}
                 <div>
-                    <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
-                        Community first,
-                        <span className="text-brand-primary"> zero-tax</span> token on Sei Network
+                    {/* Trust chips */}
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] sm:text-[11px] font-semibold">
+                        {["1B supply", "Zero tax", "Liquidity locked", "Immutable"].map((t) => (
+                            <span
+                                key={t}
+                                className="rounded-full border border-white/10 bg-brand-card/20 px-2.5 py-0.5 sm:px-3 sm:py-1 text-brand-text"
+                            >
+                                {t}
+                            </span>
+                        ))}
+                    </div>
+
+                    <h1 className="mt-4 text-4xl md:text-6xl font-extrabold leading-tight">
+                        <span className="whitespace-nowrap">
+                            Earn <span className="text-brand-primary">daily</span> rewards.
+                        </span>
+                        <br />
+                        Grow your streak.
                     </h1>
 
                     <p className="mt-4 text-brand-subtle max-w-prose">
-                        1B supply. Liquidity locked. Built for memes, investors, and long-term holders who actually
-                        stick around.
-                    </p>
-                    <p className="mt-4 text-brand-subtle max-w-prose">
-                        Contract is immutable and finalized. Daily streaks and on-chain rewards are designed to favor
-                        holders who keep stacking FROG over time.
+                        $FROG on Sei EVM. Check in daily. Build streaks. Earn more over time.
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-3">
@@ -51,63 +119,122 @@ export function HeroSection() {
                             href="#swap"
                             className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/40 bg-brand-primary text-brand-bg"
                         >
-                            Exchange
+                            FrogSwap
                         </a>
 
-                        {/* Always render Link (stable markup). Block when locked. */}
                         <Link
-                            href={dashboardEnabled ? "/dashboard" : "#"}
-                            aria-disabled={!dashboardEnabled}
-                            tabIndex={dashboardEnabled ? 0 : -1}
-                            onClick={(e) => {
-                                if (!dashboardEnabled) e.preventDefault();
-                            }}
-                            className={
-                                dashboardEnabled
-                                    ? "rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] cursor-pointer bg-brand-secondary text-brand-bg"
-                                    : "rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 cursor-not-allowed bg-[#e86a6a] opacity-40"
-                            }
+                            href="/dashboard"
+                            className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] bg-brand-secondary text-brand-bg"
                         >
                             Dashboard
                         </Link>
                     </div>
 
                     <p className="mt-2 text-[11px] text-brand-subtle">
-                        Dashboard access requires a connected wallet on Sei EVM.
+                        Check in daily to build streak rewards.
                     </p>
 
-                    <div className="mt-6 text-xs text-brand-subtle leading-snug">
-                        Token Contract: <code className="select-all">{requireAddress("FROG")}</code>
+                    {/* MOBILE: show mascot earlier */}
+                    <div className="mt-8 md:hidden">
+                        <MascotCard badgeText={liveStatText} />
+                    </div>
+
+                    {/* CONTRACT: collapsible on mobile, full card on md+ */}
+                    <div className="mt-6 md:mt-8">
+                        {/* Mobile compact */}
+                        <details className="group md:hidden rounded-2xl border border-white/10 bg-brand-card/15 px-3 py-2.5">
+                            <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-brand-text">
+                                        <span className="flex items-center transition-transform duration-200 group-open:rotate-90">
+                                            <svg
+                                                className="w-3 h-3"
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path d="M6 4l8 6-8 6V4z" />
+                                            </svg>
+                                        </span>
+                                        <span>Token Contract</span>
+                                    </div>
+
+                                    <div className="text-xs text-brand-subtle">
+                                        {truncateAddr(frog)}
+                                    </div>
+                                </div>
+
+                                <div className="mt-1 text-[11px] text-brand-subtle">
+                                    Tap to expand
+                                </div>
+                            </summary>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-brand-subtle">
+                                <code className="select-all text-brand-text">{frog}</code>
+
+                                <button
+                                    type="button"
+                                    onClick={onCopy}
+                                    className="rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-semibold text-brand-text hover:bg-black/40 transition"
+                                >
+                                    {copied ? "Copied" : "Copy"}
+                                </button>
+
+                                <a
+                                    href={explorerUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-semibold text-brand-text hover:bg-black/40 transition"
+                                >
+                                    Explorer
+                                </a>
+                            </div>
+                        </details>
+
+                        {/* Desktop full */}
+                        <div className="hidden md:block rounded-2xl border border-white/10 bg-brand-card/15 px-4 py-3">
+                            <div className="flex items-center justify-between">
+                                <div className="text-xs text-brand-subtle leading-snug">
+                                    <div className="font-semibold text-brand-text">Token Contract</div>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <code className="select-all text-brand-text">
+                                            {truncateAddr(frog)}
+                                        </code>
+
+                                        <button
+                                            type="button"
+                                            onClick={onCopy}
+                                            className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] font-semibold text-brand-text hover:bg-black/40 transition"
+                                        >
+                                            {copied ? "Copied" : "Copy"}
+                                        </button>
+
+                                        <a
+                                            href={explorerUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] font-semibold text-brand-text hover:bg-black/40 transition"
+                                        >
+                                            Explorer
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <details className="text-[11px] text-brand-subtle">
+                                    <summary className="cursor-pointer select-none hover:text-brand-text transition">
+                                        Show full address
+                                    </summary>
+                                    <div className="mt-1">
+                                        <code className="select-all">{frog}</code>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Mascot card */}
-                <div className="relative">
-                    <div className="froggy-breathe relative mx-auto aspect-square max-w-sm rounded-2xl border border-white/10 bg-brand-card/15 shadow-[0_22px_55px_rgba(0,0,0,0.85)] overflow-hidden">
-                        <div
-                            className="absolute inset-0 pointer-events-none opacity-[0.12]"
-                            style={{
-                                background: "radial-gradient(60% 60% at 50% 40%, #6eb819 0%, transparent 70%)",
-                            }}
-                        />
-
-                        <Image
-                            src={froggySamurai}
-                            alt="Froggy samurai mascot"
-                            fill
-                            className="relative z-10 object-contain p-5"
-                            priority
-                        />
-                    </div>
-
-                    {/* Live badge */}
-                    <div className="absolute -top-3 -right-3 inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-semibold text-brand-text shadow-[0_0_14px_rgba(0,0,0,0.9)] backdrop-blur">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-[#6EB819] opacity-60 animate-ping" />
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6EB819]" />
-                        </span>
-                        <span>Live</span>
-                    </div>
+                {/* RIGHT (desktop only; mobile already rendered above) */}
+                <div className="hidden md:block">
+                    <MascotCard badgeText={liveStatText} />
                 </div>
             </div>
         </section>
