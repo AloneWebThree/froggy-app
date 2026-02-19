@@ -3,14 +3,8 @@
 
 import { useMemo } from "react";
 import { type Address } from "viem";
-import {
-  ADDR,
-  WSEI_ADDRESS,
-  USDC_ADDRESS,
-  USDY_ADDRESS,
-  DRG_TOKEN_ADDRESS,
-} from "@/lib/froggyConfig";
-import type { FromSymbol, TokenSymbol } from "@/lib/swap/types";
+import { WSEI_ADDRESS } from "@/lib/froggyConfig";
+import { getDecimals, requireAddress, type FromSymbol, type TokenSymbol } from "@/lib/swap/tokenRegistry";
 
 // Keep this union aligned with SwapSuccessToast's ToSymbol type.
 export type ToSymbol = TokenSymbol;
@@ -32,50 +26,36 @@ export function useSwapRouting(fromSymbol: FromSymbol, toSymbol: ToSymbol) {
 
   // Route/path for quoting + swapping (same logic as current SwapSection)
   const path = useMemo<Address[]>(() => {
+    const FROG = requireAddress("FROG");
+    const USDC = requireAddress("USDC");
+    const USDY = requireAddress("USDY");
+    const DRG = requireAddress("DRG");
+
     if (fromSymbol === "SEI") {
-      if (toSymbol === "USDC")
-        return [WSEI_ADDRESS as Address, USDC_ADDRESS as Address];
-      if (toSymbol === "USDY")
-        return [
-          WSEI_ADDRESS as Address,
-          ADDR.token as Address,
-          USDY_ADDRESS as Address,
-        ];
-      if (toSymbol === "DRG")
-        return [WSEI_ADDRESS as Address, DRG_TOKEN_ADDRESS as Address];
+      if (toSymbol === "USDC") return [WSEI_ADDRESS as Address, USDC as Address];
+      if (toSymbol === "USDY") return [WSEI_ADDRESS as Address, FROG as Address, USDY as Address];
+      if (toSymbol === "DRG") return [WSEI_ADDRESS as Address, DRG as Address];
       // FROG
-      return [WSEI_ADDRESS as Address, ADDR.token as Address];
+      return [WSEI_ADDRESS as Address, FROG as Address];
     }
 
     if (fromSymbol === "USDY") {
-      if (toSymbol === "FROG")
-        return [USDY_ADDRESS as Address, ADDR.token as Address];
+      if (toSymbol === "FROG") return [USDY as Address, FROG as Address];
       // USDY -> SEI must end in WSEI for swapExactTokensForSEI
-      return [
-        USDY_ADDRESS as Address,
-        ADDR.token as Address,
-        WSEI_ADDRESS as Address,
-      ];
+      return [USDY as Address, FROG as Address, WSEI_ADDRESS as Address];
     }
 
     // fromSymbol === "DRG"
     if (toSymbol === "FROG") {
       // DRG -> SEI -> FROG === DRG -> WSEI -> FROG
-      return [
-        DRG_TOKEN_ADDRESS as Address,
-        WSEI_ADDRESS as Address,
-        ADDR.token as Address,
-      ];
+      return [DRG as Address, WSEI_ADDRESS as Address, FROG as Address];
     }
 
     // DRG -> SEI must end in WSEI for swapExactTokensForSEI
-    return [DRG_TOKEN_ADDRESS as Address, WSEI_ADDRESS as Address];
+    return [DRG as Address, WSEI_ADDRESS as Address];
   }, [fromSymbol, toSymbol]);
 
-  // Output decimals (SEI is 18; WSEI unwrap is 18)
-  const outDecimals = useMemo(() => {
-    return toSymbol === "USDC" ? 6 : 18;
-  }, [toSymbol]);
+  const outDecimals = useMemo(() => getDecimals(toSymbol), [toSymbol]);
 
   return { allowedToSymbols, path, outDecimals };
 }

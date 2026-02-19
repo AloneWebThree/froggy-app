@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 
-import { ADDR } from "@/lib/froggyConfig";
+import { requireAddress } from "@/lib/swap/tokenRegistry";
+
 import { brand } from "@/lib/brand";
 import froggySamurai from "@public/gallery/froggy-samurai.png";
 
@@ -76,7 +77,7 @@ export function HeroSection() {
                     </p>
 
                     <div className="mt-6 text-xs text-brand-subtle leading-snug">
-                        Token Contract: <code className="select-all">{ADDR.token}</code>
+                        Token Contract: <code className="select-all">{requireAddress("FROG")}</code>
                     </div>
                 </div>
 

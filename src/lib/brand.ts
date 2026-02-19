@@ -1,4 +1,4 @@
-﻿// src/lib/brand.ts
+// src/lib/brand.ts
 export const brand = {
     bg: "#0b1221",
     primary: "#6eb819",

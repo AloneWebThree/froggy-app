@@ -9,40 +9,19 @@ import {
     useWriteContract,
     useWaitForTransactionReceipt,
 } from "wagmi";
-import { WalletButton } from "../providers";
+import { WalletButton } from "@/components/WalletButton";
 import LiveStats from "@/components/LiveStats";
 
 import {
     SEI_EVM_CHAIN_ID,
     ZERO_ADDRESS,
     FROGGY_STREAK_ADDRESS,
-    FROG_TOKEN_ADDRESS,
     FROGGY_STREAK_ABI,
     ERC20_ABI,
 } from "@/lib/froggyConfig";
 
-// uint32/uint64/uint256 come back as bigint by default
-type UserStateTuple = readonly [bigint, bigint, bigint, bigint, bigint];
-
-function normalizeUserState(userState: UserStateTuple | undefined) {
-    if (!userState) {
-        return {
-            currentStreak: 0,
-            bestStreak: 0,
-            totalCheckIns: 0,
-            lastCheckInDay: null as number | null,
-            lastRecordedBalance: null as bigint | null,
-        };
-    }
-
-    return {
-        currentStreak: Number(userState[0]),
-        bestStreak: Number(userState[1]),
-        totalCheckIns: Number(userState[2]),
-        lastCheckInDay: Number(userState[3]),
-        lastRecordedBalance: userState[4],
-    };
-}
+import { requireAddress } from "@/lib/swap/tokenRegistry";
+import { normalizeUserState, type UserStateTuple } from "@/features/streak/normalizeUserState";
 
 export default function DashboardPage() {
     const { address, isConnected, chainId } = useAccount();
@@ -64,6 +43,7 @@ export default function DashboardPage() {
         isError: isUserError,
         refetch: refetchUserState,
     } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
         address: FROGGY_STREAK_ADDRESS,
         abi: FROGGY_STREAK_ABI,
         functionName: "getUserState",
@@ -158,7 +138,8 @@ export default function DashboardPage() {
     // ===== READ: FROG token balance =====
     const { data: frogBalanceRaw, isLoading: isLoadingBalance } =
         useReadContract({
-            address: FROG_TOKEN_ADDRESS,
+            chainId: SEI_EVM_CHAIN_ID,
+            address: requireAddress("FROG"),
             abi: ERC20_ABI,
             functionName: "balanceOf",
             args: [address ?? ZERO_ADDRESS],
@@ -167,10 +148,12 @@ export default function DashboardPage() {
 
     const { data: frogDecimalsRaw, isLoading: isLoadingDecimals } =
         useReadContract({
-            address: FROG_TOKEN_ADDRESS,
+            chainId: SEI_EVM_CHAIN_ID,
+            address: requireAddress("FROG"),
             abi: ERC20_ABI,
             functionName: "decimals",
             args: [],
+            query: { enabled: !wrongNetwork },
         });
 
     const isBalanceLoading = isLoadingBalance || isLoadingDecimals;
@@ -204,6 +187,7 @@ export default function DashboardPage() {
     const { isLoading: isConfirmingTx, isSuccess: isTxConfirmed } =
         useWaitForTransactionReceipt({
             hash: txHash,
+            query: { enabled: !!txHash },
         });
 
     // After confirmed check-in tx, refetch streak state
@@ -275,7 +259,7 @@ export default function DashboardPage() {
         }
         if (frogBalanceRaw == null) {
             // If bg-yellow-250 isn't in your Tailwind theme, replace with bg-yellow-300 (or your preferred token).
-            return "bg-yellow-250 text-black hover:bg-yellow-250";
+            return "bg-yellow-300 text-black hover:bg-yellow-200";
         }
         if (isCheckInPending || isConfirmingTx) {
             return "bg-brand-primary/70 text-black animate-pulse";

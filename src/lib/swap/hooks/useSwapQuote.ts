@@ -1,4 +1,4 @@
-﻿// src/lib/swap/hooks/useSwapQuote.ts
+// src/lib/swap/hooks/useSwapQuote.ts
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +22,7 @@ export function useSwapQuote(params: {
   path: readonly Address[];
   decimals?: number;
   slippageBps?: number;
+  chainId?: number;
 }) {
   const {
     routerAddress,
@@ -30,9 +31,11 @@ export function useSwapQuote(params: {
     path,
     decimals = 18,
     slippageBps = 200,
+    chainId,
   } = params;
 
   const { data, isLoading, isFetching, isError, error } = useReadContract({
+    chainId,
     address: routerAddress,
     abi: routerAbi,
     functionName: "getAmountsOut",
@@ -104,8 +107,12 @@ export function useSwapQuote(params: {
     setMinOut(null);
   }, [computed, isLoading, isFetching]);
 
+
+
+  const isStale = (isLoading || isFetching) && !computed && !!lastGoodRef.current;
   return {
     isLoading: isLoading || isFetching,
+    isStale,
     isError,
     errorMessage: getErrMsg(error),
     outRaw,

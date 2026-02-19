@@ -1,37 +1,53 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-export function useSeiUsdPrice(pollMs = 30_000) {
-  const [seiUsdPrice, setSeiUsdPrice] = useState<number | null>(null);
+type SeiPriceResponse = {
+  price?: number;
+  sei?: { usd?: number };
+};
 
-  useEffect(() => {
-    let cancelled = false;
+function parsePrice(data: unknown): number | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as any;
 
-    async function load() {
-      try {
-        const r = await fetch("/api/sei-price", { cache: "no-store" });
-        if (!r.ok) return;
+  // ✅ matches your current API response shape
+  if (typeof obj.seiUsd === "number" && Number.isFinite(obj.seiUsd)) {
+    return obj.seiUsd;
+  }
 
-        const j = await r.json();
-        const p = Number(j?.seiUsd);
+  // fallback shapes (safe to keep)
+  if (typeof obj.price === "number" && Number.isFinite(obj.price)) {
+    return obj.price;
+  }
 
-        if (!cancelled && Number.isFinite(p) && p > 0) {
-          setSeiUsdPrice(p);
-        }
-      } catch {
-        // keep last good price
-      }
-    }
+  if (
+    obj.sei &&
+    typeof obj.sei.usd === "number" &&
+    Number.isFinite(obj.sei.usd)
+  ) {
+    return obj.sei.usd;
+  }
 
-    load();
-    const id = window.setInterval(load, pollMs);
+  return null;
+}
 
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [pollMs]);
+async function fetchSeiUsd(): Promise<number> {
+  const res = await fetch("/api/sei-price");
+  if (!res.ok) throw new Error("Failed to fetch SEI price");
 
-  return seiUsdPrice;
+  const data: unknown = await res.json();
+  const price = parsePrice(data);
+  if (price === null) throw new Error("Invalid SEI price response");
+
+  return price;
+}
+
+export function useSeiUsdPrice(refetchIntervalMs = 30_000) {
+  return useQuery({
+    queryKey: ["sei-usd"],
+    queryFn: fetchSeiUsd,
+    refetchInterval: refetchIntervalMs,
+    staleTime: Math.min(20_000, refetchIntervalMs),
+  });
 }

@@ -1,4 +1,4 @@
-﻿// src/lib/sei.ts
+// src/lib/sei.ts
 import { defineChain } from "viem";
 
 export const SEI_RPC_URL =

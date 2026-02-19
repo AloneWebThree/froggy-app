@@ -2,18 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { formatCompactUsd } from "@/lib/utils/format";
+
 type FrogStats = {
     priceUsd: number;
     vol24hUsd: number;
     liquidityUsd: number;
 };
-
-function fmt(n: number) {
-    if (!n) return "$0";
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-    if (n >= 1_000) return `$${(n / 1_000).toFixed(2)}k`;
-    return `$${n.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
-}
 
 export default function LiveStats() {
     const { data, isLoading, isError } = useQuery<FrogStats>({
@@ -57,15 +52,15 @@ export default function LiveStats() {
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className={card}>
                 <div className={label}>Price</div>
-                <div className={value}>{isLoading ? "…" : fmt(price)}</div>
+                <div className={value}>{isLoading ? "…" : formatCompactUsd(price)}</div>
             </div>
             <div className={card}>
                 <div className={label}>24h Vol</div>
-                <div className={value}>{isLoading ? "…" : fmt(vol)}</div>
+                <div className={value}>{isLoading ? "…" : formatCompactUsd(vol)}</div>
             </div>
             <div className={card}>
                 <div className={label}>Liquidity</div>
-                <div className={value}>{isLoading ? "…" : fmt(liq)}</div>
+                <div className={value}>{isLoading ? "…" : formatCompactUsd(liq)}</div>
             </div>
         </div>
     );

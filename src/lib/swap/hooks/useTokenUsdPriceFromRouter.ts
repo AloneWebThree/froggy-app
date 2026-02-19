@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { formatUnits, type Address, type Abi } from "viem";
@@ -10,14 +10,16 @@ export function useTokenUsdPriceFromRouter(params: {
   routerAbi: Abi;
   tokenDecimals: number;
   seiRoute: readonly Address[]; // path for 1 SEI -> token (starts with WSEI)
+  chainId?: number;
 }) {
-  const { seiUsdPrice, routerAddress, routerAbi, tokenDecimals, seiRoute } = params;
+  const { seiUsdPrice, routerAddress, routerAbi, tokenDecimals, seiRoute, chainId } = params;
 
   const [tokenUsdPrice, setTokenUsdPrice] = useState<number | null>(null);
 
   const oneSei = 1_000_000_000_000_000_000n; // 1e18
 
   const { data } = useReadContract({
+    chainId,
     address: routerAddress,
     abi: routerAbi,
     functionName: "getAmountsOut",

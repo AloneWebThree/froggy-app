@@ -1,16 +1,28 @@
 import { NextResponse } from "next/server";
+import { FROG_PAIR_ADDRESS } from "@/lib/froggyConfig";
 
 export const revalidate = 60; // seconds (shared cache)
 
 const CHAIN = "seiv2";
-const PAIR = "0x373e718e54e73fb462fec3a73e9645efea280b84";
-const URL = `https://api.dexscreener.com/latest/dex/pairs/${CHAIN}/${PAIR}`;
+const URL = `https://api.dexscreener.com/latest/dex/pairs/${CHAIN}/${FROG_PAIR_ADDRESS}`;
 
 export async function GET() {
-    const r = await fetch(URL, {
-        // Allow Next to cache and revalidate; prevents request storms
-        next: { revalidate: 60 },
-    });
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 4_000);
+
+    let r: Response;
+    try {
+        r = await fetch(URL, {
+            // Allow Next to cache and revalidate; prevents request storms
+            next: { revalidate: 60 },
+            signal: controller.signal,
+        });
+    } catch {
+        clearTimeout(t);
+        return NextResponse.json({ error: "upstream" }, { status: 502 });
+    } finally {
+        clearTimeout(t);
+    }
 
     if (!r.ok) {
         return NextResponse.json({ error: "upstream" }, { status: 502 });
