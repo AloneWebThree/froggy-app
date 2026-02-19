@@ -45,70 +45,86 @@ import { clampDecimals, formatOutDisplay, formatTokenDisplay, formatUsd } from "
 
 type ApprovalTokenSymbol = "USDY" | "DRG";
 
+function getErrorMessage(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    if (typeof err === "string") return err;
+
+    if (typeof err === "object" && err !== null) {
+        const maybe = (err as { message?: unknown }).message;
+        if (typeof maybe === "string") return maybe;
+    }
+
+    return "";
+}
+
+function isRequestedBlockYetError(err: unknown) {
+    const msg = getErrorMessage(err).toLowerCase();
+    return msg.includes("requested block") || msg.includes("requested block yet");
+}
+
+async function withRequestedBlockRetry<T>(fn: () => Promise<T>, tries = 2, delayMs = 900): Promise<T> {
+    let lastErr: unknown;
+    for (let i = 0; i < tries; i++) {
+        try {
+            return await fn();
+        } catch (e) {
+            lastErr = e;
+            if (!isRequestedBlockYetError(e) || i === tries - 1) break;
+            await new Promise((r) => setTimeout(r, delayMs));
+        }
+    }
+    throw lastErr;
+}
+
 export function SwapSection() {
     const [amount, setAmount] = useState("");
-    // Debounce user typing before we hit the router for quotes (prevents RPC spam).
     const [debouncedAmount, setDebouncedAmount] = useState("");
     const [fromSymbol, setFromSymbol] = useState<FromSymbol>("SEI");
     const [toSymbol, setToSymbol] = useState<ToSymbol>("FROG");
 
-    // Default: approve exact (safer). Toggle off => approve max.
     const [approveExact, setApproveExact] = useState(true);
+    useEffect(() => setApproveExact(true), [fromSymbol]);
 
-    // Reset approve mode when switching input token (simple, predictable UX)
-    useEffect(() => {
-        setApproveExact(true);
-    }, [fromSymbol]);
-
-    // Quote debounce: only recompute route quote after the input settles briefly.
     useEffect(() => {
         const t = setTimeout(() => setDebouncedAmount(amount), 300);
         return () => clearTimeout(t);
     }, [amount]);
 
-    // Hydration-safe mount gate
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
         const id = requestAnimationFrame(() => setMounted(true));
         return () => cancelAnimationFrame(id);
     }, []);
 
-    // Wallet / chain
     const { address, chainId: accountChainId } = useAccount();
     const appChainId = useChainId();
 
     const hasAddress = mounted && !!address;
 
-    // Use wallet chain when connected; fall back to app chain when not connected
     const effectiveChainId = hasAddress ? accountChainId : appChainId;
-
     const networkReady = mounted && effectiveChainId !== undefined;
     const isSeiEvm = mounted && effectiveChainId === SEI_EVM_CHAIN_ID;
 
     const wrongNetwork = hasAddress && networkReady && !isSeiEvm;
     const networkUnknown = hasAddress && !networkReady;
 
-    // Gate reads/writes
     const canReadOnSei = mounted && isSeiEvm;
     const canWriteOnSei = mounted && hasAddress && isSeiEvm;
 
-    // Sei-bound viem client (do NOT call hooks inside callbacks)
+    // Single Sei client for all preflight reads/simulations (reduces "RPC roulette")
     const seiPublicClient = usePublicClient({ chainId: SEI_EVM_CHAIN_ID });
 
-    // ---- ABI casting once (reduces noise) ----
     const routerAbi = DRAGON_ROUTER_ABI as unknown as Abi;
     const erc20Abi = ERC20_ABI as unknown as Abi;
     const routerAddress = DRAGON_ROUTER_ADDRESS as Address;
 
-    // Toasts
     const [showSuccessToast, setShowSuccessToast] = useState(false);
     const [txForToast, setTxForToast] = useState<`0x${string}` | undefined>();
     const [toSymbolForToast, setToSymbolForToast] = useState<ToSymbol>("FROG");
 
     const [showApprovalToast, setShowApprovalToast] = useState(false);
     const [approvalTxForToast, setApprovalTxForToast] = useState<`0x${string}` | undefined>();
-    const [approvalTokenForToast, setApprovalTokenForToast] =
-        useState<ApprovalTokenSymbol>("USDY");
+    const [approvalTokenForToast, setApprovalTokenForToast] = useState<ApprovalTokenSymbol>("USDY");
 
     const lastToastedHashRef = useRef<string | null>(null);
 
@@ -124,11 +140,7 @@ export function SwapSection() {
     );
 
     const recordTxMeta = useCallback(
-        (
-            kind: "approve" | "swap",
-            hash: unknown,
-            meta?: { approvalToken?: ApprovalTokenSymbol; swapToSymbol?: ToSymbol }
-        ) => {
+        (kind: "approve" | "swap", hash: unknown, meta?: { approvalToken?: ApprovalTokenSymbol; swapToSymbol?: ToSymbol }) => {
             if (typeof hash !== "string") return;
             txMetaByHashRef.current.set(hash, {
                 kind,
@@ -147,7 +159,6 @@ export function SwapSection() {
         setShowErrorToast(true);
     }, []);
 
-    // (3) Less aggressive error clearing: close only after user stops changing inputs briefly.
     useEffect(() => {
         if (!showErrorToast) return;
         const t = setTimeout(() => {
@@ -157,19 +168,15 @@ export function SwapSection() {
         return () => clearTimeout(t);
     }, [amount, fromSymbol, toSymbol, showErrorToast]);
 
-    // Routing extracted to hook
     const { allowedToSymbols, path: v2Path, outDecimals } = useSwapRouting(fromSymbol, toSymbol);
 
-    // If From/allowed list changes and To becomes invalid, snap To to first allowed option
     useEffect(() => {
         if (!allowedToSymbols.includes(toSymbol)) setToSymbol(allowedToSymbols[0]);
     }, [allowedToSymbols, toSymbol]);
 
-    // Prices
     const seiUsdPriceQuery = useSeiUsdPrice(30_000);
     const seiUsdPrice = seiUsdPriceQuery.data ?? null;
 
-    // Token USD prices (router-derived)
     const frogUsdPrice = useTokenUsdPriceFromRouter({
         seiUsdPrice: canReadOnSei ? seiUsdPrice : null,
         chainId: SEI_EVM_CHAIN_ID,
@@ -197,7 +204,6 @@ export function SwapSection() {
         seiRoute: [WSEI_ADDRESS as Address, requireAddress("DRG")],
     });
 
-    // Amount parsing
     const parsedSei = parseSeiInput(amount);
     const parsedSeiDebounced = parseSeiInput(debouncedAmount);
 
@@ -220,7 +226,6 @@ export function SwapSection() {
                 return units > 0n ? units : null;
             }
 
-            // DRG
             const units = parseUnits(amount as `${string}`, getDecimals("DRG"));
             return units > 0n ? units : null;
         } catch {
@@ -228,7 +233,6 @@ export function SwapSection() {
         }
     }, [amount, fromSymbol, parsedSei.units]);
 
-    // Quote amount uses debounced input so we don't call the router on every keystroke.
     const amountInRawForQuote: bigint | null = useMemo(() => {
         if (!debouncedAmount || debouncedAmount.trim() === "") return null;
 
@@ -242,7 +246,6 @@ export function SwapSection() {
                 return units > 0n ? units : null;
             }
 
-            // DRG
             const units = parseUnits(debouncedAmount as `${string}`, getDecimals("DRG"));
             return units > 0n ? units : null;
         } catch {
@@ -252,10 +255,8 @@ export function SwapSection() {
 
     const quoteInputPending = amount !== debouncedAmount;
 
-    // From-side USD estimate
     const fromUsdValue = useMemo(() => {
         if (amountInNumber <= 0) return null;
-
         if (fromSymbol === "SEI") return seiUsdPrice !== null ? amountInNumber * seiUsdPrice : null;
         if (fromSymbol === "USDY") return usdyUsdPrice !== null ? amountInNumber * usdyUsdPrice : null;
         return drgUsdPrice !== null ? amountInNumber * drgUsdPrice : null;
@@ -263,7 +264,6 @@ export function SwapSection() {
 
     const SLIPPAGE_BPS = 200;
 
-    // Quote gating: only request quote on Sei and with a valid amount
     const quote = useSwapQuote({
         routerAddress,
         routerAbi,
@@ -274,29 +274,17 @@ export function SwapSection() {
         chainId: SEI_EVM_CHAIN_ID,
     });
 
-    // To-side USD estimate
     const tokenOutAmount = quote.outFormatted ? parseFloat(quote.outFormatted) : 0;
 
     const toUsdValue = useMemo(() => {
         if (!quote.outFormatted || !Number.isFinite(tokenOutAmount) || tokenOutAmount <= 0) return null;
 
-        // Intentional peg assumption.
         if (toSymbol === "USDC") return tokenOutAmount;
-
         if (toSymbol === "USDY") return usdyUsdPrice !== null ? tokenOutAmount * usdyUsdPrice : null;
         if (toSymbol === "SEI") return seiUsdPrice !== null ? tokenOutAmount * seiUsdPrice : null;
         if (toSymbol === "DRG") return drgUsdPrice !== null ? tokenOutAmount * drgUsdPrice : null;
-
         return frogUsdPrice !== null ? tokenOutAmount * frogUsdPrice : null;
-    }, [
-        frogUsdPrice,
-        usdyUsdPrice,
-        seiUsdPrice,
-        drgUsdPrice,
-        quote.outFormatted,
-        tokenOutAmount,
-        toSymbol,
-    ]);
+    }, [frogUsdPrice, usdyUsdPrice, seiUsdPrice, drgUsdPrice, quote.outFormatted, tokenOutAmount, toSymbol]);
 
     // ========= Balances + Max =========
 
@@ -306,7 +294,6 @@ export function SwapSection() {
         query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
     });
 
-    // (4) Safer args: don't pass address when undefined
     const { data: usdyBalanceRaw, refetch: refetchUsdyBalance } = useReadContract({
         chainId: SEI_EVM_CHAIN_ID,
         address: requireAddress("USDY"),
@@ -339,15 +326,7 @@ export function SwapSection() {
 
         if (fromSymbol === "USDY") return typeof usdyBalanceRaw === "bigint" ? usdyBalanceRaw : null;
         return typeof drgBalanceRaw === "bigint" ? drgBalanceRaw : null;
-    }, [
-        hasAddress,
-        canReadOnSei,
-        fromSymbol,
-        seiBalance?.value,
-        usdyBalanceRaw,
-        drgBalanceRaw,
-        SEI_GAS_BUFFER_RAW,
-    ]);
+    }, [hasAddress, canReadOnSei, fromSymbol, seiBalance?.value, usdyBalanceRaw, drgBalanceRaw, SEI_GAS_BUFFER_RAW]);
 
     const fromBalanceDisplay = useMemo(() => {
         if (fromBalanceRaw === null) return null;
@@ -363,7 +342,6 @@ export function SwapSection() {
 
     const handleMax = useCallback(() => {
         if (fromBalanceRaw === null) return;
-
         const decimals = fromSymbol === "SEI" ? 18 : fromSymbol === "USDY" ? getDecimals("USDY") : getDecimals("DRG");
         const full = formatUnits(fromBalanceRaw, decimals);
         setAmount(clampDecimals(full, 6));
@@ -389,10 +367,8 @@ export function SwapSection() {
     const { writeContractAsync, data: txHash, isPending } = useWriteContract();
     const { isConfirming, isConfirmed: isTxConfirmed } = useTxLifecycle(txHash as `0x${string}` | undefined);
 
-    // (2) Re-entrancy lock to prevent double-click / double-submit
     const txLockRef = useRef(false);
 
-    // Refresh balances/allowances on confirmed tx (approval or swap)
     useEffect(() => {
         if (!isTxConfirmed) return;
         void refetchSeiBalance();
@@ -401,7 +377,6 @@ export function SwapSection() {
         void refetchTokenAllowance();
     }, [isTxConfirmed, refetchSeiBalance, refetchUsdyBalance, refetchDrgBalance, refetchTokenAllowance]);
 
-    // (1) Success/approval toast uses recorded meta (prevents wrong toSymbol if user changes dropdown mid-tx)
     useEffect(() => {
         if (!isTxConfirmed || !txHash) return;
         if (lastToastedHashRef.current === txHash) return;
@@ -426,14 +401,12 @@ export function SwapSection() {
             }
         });
 
-        // prevent unbounded growth
         if (typeof txHash === "string") txMetaByHashRef.current.delete(txHash);
 
         return () => cancelAnimationFrame(id);
     }, [isTxConfirmed, txHash, toSymbol]);
 
     const executeSwap = useCallback(async () => {
-        // (2) Hard guard against double-submit
         if (txLockRef.current || isSwapping || isApproving || isPending || isConfirming) return;
         txLockRef.current = true;
 
@@ -447,8 +420,6 @@ export function SwapSection() {
                 pushError("Enter a valid amount.");
                 return;
             }
-
-            const amountIn = amountInRaw;
 
             if (insufficientBalance) {
                 pushError("Insufficient balance for this amount.");
@@ -470,15 +441,23 @@ export function SwapSection() {
                 return;
             }
 
+            // 10 minutes is fine; main issue is RPC consistency, not deadline.
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+            const amountIn = amountInRaw;
+            type WriteArgs = Parameters<typeof writeContractAsync>[0];
 
             const preflightMinOut = async (): Promise<bigint> => {
-                const amountsOut = await seiPublicClient.readContract({
-                    address: routerAddress,
-                    abi: routerAbi,
-                    functionName: "getAmountsOut",
-                    args: [amountIn, v2Path],
-                });
+                const amountsOut = await withRequestedBlockRetry(
+                    () =>
+                        seiPublicClient.readContract({
+                            address: routerAddress,
+                            abi: routerAbi,
+                            functionName: "getAmountsOut",
+                            args: [amountIn, v2Path],
+                        }) as Promise<unknown>,
+                    2,
+                    900
+                );
 
                 if (!Array.isArray(amountsOut) || amountsOut.length === 0) {
                     throw new Error("Unable to fetch a fresh quote.");
@@ -506,51 +485,60 @@ export function SwapSection() {
 
                     const minOutFresh = await preflightMinOut();
 
-                    await seiPublicClient.simulateContract({
-                        address: routerAddress,
-                        abi: routerAbi,
-                        functionName: "swapExactSEIForTokens",
-                        args: [minOutFresh, v2Path, address as Address, deadline],
-                        account: address as Address,
-                        value: amountIn,
-                    });
+                    // KEY FIX:
+                    // simulateContract returns a prepared request; sending that request avoids wagmi re-simulating on a different RPC.
+                    const { request } = await withRequestedBlockRetry(
+                        () =>
+                            seiPublicClient.simulateContract({
+                                address: routerAddress,
+                                abi: routerAbi,
+                                functionName: "swapExactSEIForTokens",
+                                args: [minOutFresh, v2Path, address as Address, deadline],
+                                account: address as Address,
+                                value: amountIn,
+                            }),
+                        2,
+                        900
+                    );
+
+                    type WriteArgs = Parameters<typeof writeContractAsync>[0];
 
                     const h = await writeContractAsync({
+                        ...(request as WriteArgs),
                         chainId: SEI_EVM_CHAIN_ID,
-                        address: routerAddress,
-                        abi: routerAbi,
-                        functionName: "swapExactSEIForTokens",
-                        args: [minOutFresh, v2Path, address as Address, deadline],
-                        value: amountIn,
                     });
-
                     recordTxMeta("swap", h, { swapToSymbol: toSymbol });
                     return;
                 }
 
                 // ========= TOKEN IN (USDY/DRG) =========
                 const tokenIn = fromSymbol === "USDY" ? requireAddress("USDY") : requireAddress("DRG");
-
-                // treat undefined allowance as 0n
                 const currentAllowance = tokenAllowance ?? 0n;
 
                 if (currentAllowance < amountIn) {
                     setIsApproving(true);
                     try {
-                        await ensureApproval({
-                            publicClient: seiPublicClient,
-                            token: tokenIn as Address,
-                            spender: routerAddress,
-                            requiredAmount: amountIn,
-                            currentAllowance,
-                            approveExact,
-                            writeContractAsync: async (args) => {
-                                const h = await writeContractAsync(args);
-                                const approvalToken: ApprovalTokenSymbol = fromSymbol === "USDY" ? "USDY" : "DRG";
-                                recordTxMeta("approve", h, { approvalToken });
-                                return h;
-                            },
-                        });
+                        await withRequestedBlockRetry(
+                            () =>
+                                ensureApproval({
+                                    publicClient: seiPublicClient,
+                                    token: tokenIn as Address,
+                                    spender: routerAddress,
+                                    requiredAmount: amountIn,
+                                    currentAllowance,
+                                    approveExact,
+                                    writeContractAsync: async (args) => {
+                                        // This still uses wagmi write; ensureApproval may simulate internally,
+                                        // but we keep it on the same publicClient for reads.
+                                        const h = await writeContractAsync(args);
+                                        const approvalToken: ApprovalTokenSymbol = fromSymbol === "USDY" ? "USDY" : "DRG";
+                                        recordTxMeta("approve", h, { approvalToken });
+                                        return h;
+                                    },
+                                }),
+                            2,
+                            900
+                        );
 
                         await refetchTokenAllowance();
                     } finally {
@@ -562,22 +550,23 @@ export function SwapSection() {
                 if (toSymbol !== "SEI") {
                     const minOutFresh = await preflightMinOut();
 
-                    await seiPublicClient.simulateContract({
-                        address: routerAddress,
-                        abi: routerAbi,
-                        functionName: "swapExactTokensForTokens",
-                        args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
-                        account: address as Address,
-                    });
+                    const { request } = await withRequestedBlockRetry(
+                        () =>
+                            seiPublicClient.simulateContract({
+                                address: routerAddress,
+                                abi: routerAbi,
+                                functionName: "swapExactTokensForTokens",
+                                args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
+                                account: address as Address,
+                            }),
+                        2,
+                        900
+                    );
 
                     const h = await writeContractAsync({
+                        ...(request as WriteArgs),
                         chainId: SEI_EVM_CHAIN_ID,
-                        address: routerAddress,
-                        abi: routerAbi,
-                        functionName: "swapExactTokensForTokens",
-                        args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
                     });
-
                     recordTxMeta("swap", h, { swapToSymbol: toSymbol });
                     return;
                 }
@@ -585,25 +574,33 @@ export function SwapSection() {
                 // ========= TOKEN -> SEI =========
                 const minOutFresh = await preflightMinOut();
 
-                await seiPublicClient.simulateContract({
-                    address: routerAddress,
-                    abi: routerAbi,
-                    functionName: "swapExactTokensForSEI",
-                    args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
-                    account: address as Address,
-                });
+                const { request } = await withRequestedBlockRetry(
+                    () =>
+                        seiPublicClient.simulateContract({
+                            address: routerAddress,
+                            abi: routerAbi,
+                            functionName: "swapExactTokensForSEI",
+                            args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
+                            account: address as Address,
+                        }),
+                    2,
+                    900
+                );
 
                 const h = await writeContractAsync({
+                    ...(request as WriteArgs),
                     chainId: SEI_EVM_CHAIN_ID,
-                    address: routerAddress,
-                    abi: routerAbi,
-                    functionName: "swapExactTokensForSEI",
-                    args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
                 });
-
                 recordTxMeta("swap", h, { swapToSymbol: toSymbol });
             } catch (err: unknown) {
                 setIsApproving(false);
+
+                // Slightly better UX for this specific RPC issue
+                if (isRequestedBlockYetError(err)) {
+                    pushError("RPC is catching up (requested block not available yet). Try again in a moment.");
+                    return;
+                }
+
                 pushError(errToMessage(err, "Transaction was rejected or failed."));
             } finally {
                 setIsSwapping(false);
@@ -655,18 +652,7 @@ export function SwapSection() {
         }
 
         await executeSwap();
-    }, [
-        mounted,
-        hasAddress,
-        networkUnknown,
-        wrongNetwork,
-        pushError,
-        executeSwap,
-        isSwapping,
-        isApproving,
-        isPending,
-        isConfirming,
-    ]);
+    }, [mounted, hasAddress, networkUnknown, wrongNetwork, pushError, executeSwap, isSwapping, isApproving, isPending, isConfirming]);
 
     const swapDisabled =
         !mounted ||
@@ -726,9 +712,7 @@ export function SwapSection() {
 
             <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1.15fr] md:items-stretch">
                 {/* Left: chart */}
-                <div
-                    className={`rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}
-                >
+                <div className={`rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}>
                     <iframe
                         title="Price chart on GeckoTerminal"
                         src={URL.dexEmbed}
@@ -775,13 +759,7 @@ export function SwapSection() {
                             </h3>
                             <p className="mt-1 text-xs text-brand-subtle">{helpLine}</p>
                         </div>
-                        <Image
-                            src="/froggy-cape.png"
-                            width={88}
-                            height={88}
-                            className="rounded-full shrink-0"
-                            alt="Froggy icon"
-                        />
+                        <Image src="/froggy-cape.png" width={88} height={88} className="rounded-full shrink-0" alt="Froggy icon" />
                     </div>
 
                     <div className="mt-4 flex-1 overflow-y-auto overflow-x-hidden pr-4" style={{ scrollbarGutter: "stable" }}>
@@ -888,9 +866,7 @@ export function SwapSection() {
                                         ) : quote.outFormatted ? (
                                             <>Estimated output with slippage protection.</>
                                         ) : (
-                                            <>
-                                                No quote available{quote.errorMessage ? ` (${quote.errorMessage})` : ""}.
-                                            </>
+                                            <>No quote available{quote.errorMessage ? ` (${quote.errorMessage})` : ""}.</>
                                         )}
                                     </span>
 
@@ -900,7 +876,7 @@ export function SwapSection() {
                                 </div>
                             </div>
 
-                            {/* Approve behavior toggle (only for ERC20 inputs) */}
+                            {/* Approve behavior toggle */}
                             {showApproveToggle && (
                                 <label className="flex items-center justify-between gap-3 rounded-xl bg-black/10 border border-white/10 px-3 py-2">
                                     <div className="text-[12px] font-semibold text-brand-text">Approve exact amount</div>
@@ -926,9 +902,7 @@ export function SwapSection() {
                                 type="button"
                                 onClick={handlePrimaryClick}
                                 disabled={swapDisabled}
-                                className={`h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${swapDisabled
-                                        ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle"
-                                        : "bg-brand-primary text-black hover:scale-[1.01]"
+                                className={`h-11 w-full rounded-2xl text-sm font-semibold transition-transform duration-150 ${swapDisabled ? "cursor-not-allowed bg-brand-subtle/30 text-brand-subtle" : "bg-brand-primary text-black hover:scale-[1.01]"
                                     }`}
                             >
                                 {primaryLabel}
