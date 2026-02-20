@@ -1,18 +1,10 @@
-// src/components/landing/SwapSection.tsx
-// src/components/landing/SwapSection.tsx
+// src/features/swap/components/SwapSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { type Address, type Abi, parseUnits, formatUnits } from "viem";
-import {
-    useAccount,
-    useChainId,
-    useWriteContract,
-    useReadContract,
-    useBalance,
-    usePublicClient,
-} from "wagmi";
+import { useWriteContract, useReadContract, useBalance, usePublicClient } from "wagmi";
 
 import LiveStats from "@/components/LiveStats";
 import { CopyButton } from "@/components/landing/CopyButton";
@@ -43,6 +35,9 @@ import { requireAddress, getDecimals, type FromSymbol } from "@/lib/swap/tokenRe
 
 import { errToMessage } from "@/lib/utils/errors";
 import { clampDecimals, formatOutDisplay, formatTokenDisplay, formatUsd } from "@/lib/utils/format";
+
+import { useSwapGate } from "@/features/swap/hooks/useSwapGate";
+import { useSwapForm } from "@/features/swap/hooks/useSwapForm";
 
 type ApprovalTokenSymbol = "USDY" | "DRG";
 
@@ -77,40 +72,57 @@ async function withRequestedBlockRetry<T>(fn: () => Promise<T>, tries = 2, delay
     throw lastErr;
 }
 
+function allowedToForFrom(from: FromSymbol): ToSymbol[] {
+    // Mirrors your UI: from is one of SEI/USDY/DRG and "Receive" options depend on router routing rules.
+    // This matches what your current routing hook enforces in practice:
+    // - SEI can swap to FROG, USDY, DRG (and possibly SEI is blocked by UI)
+    // - USDY/DRG can swap to FROG and SEI (and possibly each other depending on router path availability)
+    //
+    // IMPORTANT: We still use `useSwapRouting(fromSymbol, toSymbol)` as the source of truth for the path.
+    // This list is only used to keep `toSymbol` valid on fromSymbol change inside the form hook.
+    switch (from) {
+        case "SEI":
+            return ["FROG", "USDY", "DRG", "SEI"] as ToSymbol[];
+        case "USDY":
+            return ["FROG", "SEI", "USDY"] as ToSymbol[];
+        case "DRG":
+            return ["FROG", "SEI", "DRG"] as ToSymbol[];
+        default:
+            return ["FROG"] as ToSymbol[];
+    }
+}
+
 export function SwapSection() {
-    const [amount, setAmount] = useState("");
-    const [debouncedAmount, setDebouncedAmount] = useState("");
-    const [fromSymbol, setFromSymbol] = useState<FromSymbol>("SEI");
-    const [toSymbol, setToSymbol] = useState<ToSymbol>("FROG");
-
-    const [approveExact, setApproveExact] = useState(true);
-    useEffect(() => setApproveExact(true), [fromSymbol]);
-
-    useEffect(() => {
-        const t = setTimeout(() => setDebouncedAmount(amount), 300);
-        return () => clearTimeout(t);
-    }, [amount]);
-
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        const id = requestAnimationFrame(() => setMounted(true));
-        return () => cancelAnimationFrame(id);
-    }, []);
-
-    const { address, chainId: accountChainId } = useAccount();
-    const appChainId = useChainId();
-
+    // Gate (same semantics as before)
+    const gate = useSwapGate();
+    const mounted = gate.mounted;
+    const address = gate.address as Address | undefined;
     const hasAddress = mounted && !!address;
+    const wrongNetwork = gate.wrongNetwork;
+    const networkUnknown = gate.networkUnknown;
+    const canReadOnSei = gate.canReadOnSei;
+    const canWriteOnSei = gate.canWriteOnSei;
 
-    const effectiveChainId = hasAddress ? accountChainId : appChainId;
-    const networkReady = mounted && effectiveChainId !== undefined;
-    const isSeiEvm = mounted && effectiveChainId === SEI_EVM_CHAIN_ID;
+    // Form (symbols/amount/debounce/approveExact reset)
+    const form = useSwapForm<FromSymbol, ToSymbol>({
+        initialFrom: "SEI" as FromSymbol,
+        initialTo: "FROG" as ToSymbol,
+        debounceMs: 300,
+        initialSlippageBps: 200,
+        getAllowedToSymbols: (from) => allowedToForFrom(from),
+    });
 
-    const wrongNetwork = hasAddress && networkReady && !isSeiEvm;
-    const networkUnknown = hasAddress && !networkReady;
-
-    const canReadOnSei = mounted && isSeiEvm;
-    const canWriteOnSei = mounted && hasAddress && isSeiEvm;
+    const {
+        fromSymbol,
+        toSymbol,
+        amount,
+        debouncedAmount,
+        approveExact,
+        setFromSymbol,
+        setToSymbol,
+        setAmount,
+        setApproveExact,
+    } = form;
 
     // Single Sei client for all preflight reads/simulations (reduces "RPC roulette")
     const seiPublicClient = usePublicClient({ chainId: SEI_EVM_CHAIN_ID });
@@ -171,11 +183,13 @@ export function SwapSection() {
         return () => clearTimeout(t);
     }, [showErrorToast, debouncedAmount, fromSymbol, toSymbol]);
 
+    // Routing remains the source of truth for allowed receive symbols + path
     const { allowedToSymbols, path: v2Path, outDecimals } = useSwapRouting(fromSymbol, toSymbol);
 
+    // Keep `toSymbol` valid against routing truth as well
     useEffect(() => {
         if (!allowedToSymbols.includes(toSymbol)) setToSymbol(allowedToSymbols[0]);
-    }, [allowedToSymbols, toSymbol]);
+    }, [allowedToSymbols, toSymbol, setToSymbol]);
 
     const seiUsdPriceQuery = useSeiUsdPrice(30_000);
     const seiUsdPrice = seiUsdPriceQuery.data ?? null;
@@ -348,7 +362,7 @@ export function SwapSection() {
         const decimals = fromSymbol === "SEI" ? 18 : fromSymbol === "USDY" ? getDecimals("USDY") : getDecimals("DRG");
         const full = formatUnits(fromBalanceRaw, decimals);
         setAmount(clampDecimals(full, 6));
-    }, [fromBalanceRaw, fromSymbol]);
+    }, [fromBalanceRaw, fromSymbol, setAmount]);
 
     // ========= Allowances =========
 
@@ -444,7 +458,6 @@ export function SwapSection() {
                 return;
             }
 
-            // 10 minutes is fine; main issue is RPC consistency, not deadline.
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
             const amountIn = amountInRaw;
             type WriteArgs = Parameters<typeof writeContractAsync>[0];
@@ -479,7 +492,6 @@ export function SwapSection() {
                 setIsSwapping(true);
                 setErrorToastMessage(undefined);
 
-                // ========= SEI -> TOKEN =========
                 if (fromSymbol === "SEI") {
                     if (toSymbol === "SEI") {
                         pushError("Select a different token to receive.");
@@ -488,8 +500,6 @@ export function SwapSection() {
 
                     const minOutFresh = await preflightMinOut();
 
-                    // KEY FIX:
-                    // simulateContract returns a prepared request; sending that request avoids wagmi re-simulating on a different RPC.
                     const { request } = await withRequestedBlockRetry(
                         () =>
                             seiPublicClient.simulateContract({
@@ -504,8 +514,6 @@ export function SwapSection() {
                         900
                     );
 
-                    type WriteArgs = Parameters<typeof writeContractAsync>[0];
-
                     const h = await writeContractAsync({
                         ...(request as WriteArgs),
                         chainId: SEI_EVM_CHAIN_ID,
@@ -514,7 +522,6 @@ export function SwapSection() {
                     return;
                 }
 
-                // ========= TOKEN IN (USDY/DRG) =========
                 const tokenIn = fromSymbol === "USDY" ? requireAddress("USDY") : requireAddress("DRG");
                 const currentAllowance = tokenAllowance ?? 0n;
 
@@ -531,8 +538,6 @@ export function SwapSection() {
                                     currentAllowance,
                                     approveExact,
                                     writeContractAsync: async (args) => {
-                                        // This still uses wagmi write; ensureApproval may simulate internally,
-                                        // but we keep it on the same publicClient for reads.
                                         const h = await writeContractAsync(args);
                                         const approvalToken: ApprovalTokenSymbol = fromSymbol === "USDY" ? "USDY" : "DRG";
                                         recordTxMeta("approve", h, { approvalToken });
@@ -549,7 +554,6 @@ export function SwapSection() {
                     }
                 }
 
-                // ========= TOKEN -> TOKEN =========
                 if (toSymbol !== "SEI") {
                     const minOutFresh = await preflightMinOut();
 
@@ -574,7 +578,6 @@ export function SwapSection() {
                     return;
                 }
 
-                // ========= TOKEN -> SEI =========
                 const minOutFresh = await preflightMinOut();
 
                 const { request } = await withRequestedBlockRetry(
@@ -598,7 +601,6 @@ export function SwapSection() {
             } catch (err: unknown) {
                 setIsApproving(false);
 
-                // Slightly better UX for this specific RPC issue
                 if (isRequestedBlockYetError(err)) {
                     pushError("RPC is catching up (requested block not available yet). Try again in a moment.");
                     return;
@@ -750,10 +752,7 @@ export function SwapSection() {
                 </div>
 
                 {/* Right: swap card */}
-                <div
-                    id="swap"
-                    className={`rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col ${panelHeight} overflow-hidden`}
-                >
+                <div id="swap" className={`rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col ${panelHeight} overflow-hidden`}>
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
                             <div className="text-sm text-brand-subtle">Quick Action</div>
@@ -769,7 +768,6 @@ export function SwapSection() {
                         <div className="space-y-4 min-w-0">
                             {/* From / To selectors */}
                             <div className="grid grid-cols-2 gap-3">
-                                {/* From */}
                                 <div className="grid gap-1 min-w-0">
                                     <label className="text-[11px] text-brand-subtle">Pay With</label>
                                     <select
@@ -783,7 +781,6 @@ export function SwapSection() {
                                     </select>
                                 </div>
 
-                                {/* To */}
                                 <div className="grid gap-1 min-w-0">
                                     <label className="text-[11px] text-brand-subtle">Receive</label>
                                     <select
@@ -920,12 +917,7 @@ export function SwapSection() {
                 </div>
             </div>
 
-            <SwapSuccessToast
-                open={showSuccessToast}
-                onClose={() => setShowSuccessToast(false)}
-                txHash={txForToast}
-                toSymbol={toSymbolForToast}
-            />
+            <SwapSuccessToast open={showSuccessToast} onClose={() => setShowSuccessToast(false)} txHash={txForToast} toSymbol={toSymbolForToast} />
 
             <ApprovalToast
                 open={showApprovalToast}

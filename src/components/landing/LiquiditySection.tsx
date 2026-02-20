@@ -135,6 +135,16 @@ export function LiquiditySection() {
     const frog = requireAddress("FROG");
     const usdy = requireAddress("USDY");
 
+    const POOLS = useMemo(
+        () =>
+            [
+                { key: "SEI_FROG" as const, label: "SEI / FROG" },
+                { key: "USDY_FROG" as const, label: "USDY / FROG" },
+                // future: add more pools here
+            ] satisfies Array<{ key: PoolKey; label: string }>,
+        []
+    );
+
     const [pool, setPool] = useState<PoolKey>("SEI_FROG");
     const [mode, setMode] = useState<LiqMode>("ADD");
 
@@ -295,11 +305,21 @@ export function LiquiditySection() {
                 if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
                 const [t0, t1, r] = await Promise.all([
-                    client.readContract({ address: poolMeta.pair, abi: PAIR_ABI, functionName: "token0" }) as Promise<Address>,
-                    client.readContract({ address: poolMeta.pair, abi: PAIR_ABI, functionName: "token1" }) as Promise<Address>,
-                    client.readContract({ address: poolMeta.pair, abi: PAIR_ABI, functionName: "getReserves" }) as Promise<
-                        [bigint, bigint, number]
-                    >,
+                    client.readContract({
+                        address: poolMeta.pair,
+                        abi: PAIR_ABI,
+                        functionName: "token0",
+                    }) as Promise<Address>,
+                    client.readContract({
+                        address: poolMeta.pair,
+                        abi: PAIR_ABI,
+                        functionName: "token1",
+                    }) as Promise<Address>,
+                    client.readContract({
+                        address: poolMeta.pair,
+                        abi: PAIR_ABI,
+                        functionName: "getReserves",
+                    }) as Promise<[bigint, bigint, number]>,
                 ]);
 
                 if (cancelled) return;
@@ -833,7 +853,6 @@ export function LiquiditySection() {
             if (parsed.rawA === null || parsed.rawB === null) return "Enter valid amounts";
             if (insufficientA) return `Insufficient ${poolMeta.tokenASymbol}`;
             if (insufficientB) return `Insufficient ${poolMeta.tokenBSymbol}`;
-            // If reserves aren't ready, we can still add (pool may be empty) — ratio auto-fill just won't help yet.
             return "Add liquidity";
         }
 
@@ -896,7 +915,7 @@ export function LiquiditySection() {
 
     return (
         <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-black/20 to-black/5 shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-5">
-            {/* Header (clean + purposeful) */}
+            {/* Header */}
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -924,61 +943,59 @@ export function LiquiditySection() {
                             </button>
                         </div>
 
-                        {/* Replace redundant "Add • SEI/FROG" with a useful status pill */}
                         <span
-                            className={`inline-flex h-6 items-center rounded-lg border px-2 text-[10px] font-semibold leading-none ${statusPill.cls}`}
+                            className={`inline-flex h-5 items-center rounded-md border px-1.5 text-[9px] font-semibold leading-none ${statusPill.cls}`}
                         >
                             {statusPill.text}
                         </span>
                     </div>
 
-                    {/* Reserves + Rate grouped */}
+                    {/* Reserves only (prices moved down into the form area) */}
                     <div className="mt-2 grid gap-1">
                         {reservesContent ? (
-                            <div className="text-[11px] text-brand-subtle">
-                                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1">
-                                    <span className="text-white/60">Reserves</span>
-                                    <span className="text-white/20">•</span>
-                                    <span className="text-brand-text font-mono">{reservesContent}</span>
-                                </span>
+                            <div className="text-[11px] text-white/55">
+                                <span className="text-white/45 mr-1">Reserves:</span>
+                                <span className="font-mono text-white/70">{reservesContent}</span>
                             </div>
                         ) : (
-                            <div className="text-[11px] text-brand-subtle">
+                            <div className="text-[11px] text-white/45">
                                 Reserves unavailable{mode === "ADD" ? " (pool may be empty — you can still add)." : "."}
                             </div>
                         )}
-
-                        {rateLine && <div className="mt-1 pl-2 text-[11px] leading-tight text-white/55">{rateLine}</div>}
                     </div>
                 </div>
 
-                {/* Pool toggle (de-emphasized) */}
-                <div className="flex items-center gap-1.5 rounded-xl bg-black/20 border border-white/10 p-1">
-                    <button
-                        type="button"
-                        onClick={() => resetPool("SEI_FROG")}
-                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${pool === "SEI_FROG"
-                                ? "bg-brand-primary/10 text-brand-text border-brand-primary/30"
-                                : "text-white/55 border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
-                            }`}
-                    >
-                        SEI / FROG
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => resetPool("USDY_FROG")}
-                        className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${pool === "USDY_FROG"
-                                ? "bg-brand-primary/10 text-brand-text border-brand-primary/30"
-                                : "text-white/55 border-transparent hover:text-white hover:bg-white/5 hover:border-white/10"
-                            }`}
-                    >
-                        USDY / FROG
-                    </button>
+                {/* Pool dropdown (scales to many pools) */}
+                <div className="flex items-center gap-2">
+                    <label className="sr-only" htmlFor="pool-select">
+                        Pool
+                    </label>
+                    <div className="relative">
+                        <select
+                            id="pool-select"
+                            value={pool}
+                            onChange={(e) => resetPool(e.target.value as PoolKey)}
+                            className="h-10 w-[168px] appearance-none rounded-xl bg-black/20 border border-white/10 pl-3 pr-9 text-xs font-semibold text-white/80 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
+                        >
+                            {POOLS.map((p) => (
+                                <option key={p.key} value={p.key}>
+                                    {p.label}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-white/50">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path
+                                    fillRule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.936a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z"
+                                    clipRule="evenodd"
+                                />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Tightened spacing */}
             <div className="mt-3 grid gap-4">
                 {mode === "ADD" ? (
                     <>
@@ -1057,6 +1074,14 @@ export function LiquiditySection() {
                                 />
                             </div>
                         </div>
+
+                        {/* Prices moved here (below the inputs) */}
+                        {rateLine && (
+                            <div className="text-[11px] text-white/55 pl-1 leading-tight">
+                                <span className="text-white/45 mr-1">Price:</span>
+                                <span className="font-mono text-white/70">{rateLine}</span>
+                            </div>
+                        )}
 
                         {error && <div className="text-xs text-red-300">{error}</div>}
 
@@ -1151,14 +1176,26 @@ export function LiquiditySection() {
                                 </div>
                             </div>
 
+                            {/* Prices also visible in remove flow, under the control area */}
+                            {rateLine && (
+                                <div className="text-[11px] text-white/55 pl-1 leading-tight">
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/15 px-2.5 py-1">
+                                        <span className="text-white/45">Price</span>
+                                        <span className="text-white/20">•</span>
+                                        <span className="font-mono text-white/70">{rateLine}</span>
+                                    </span>
+                                </div>
+                            )}
+
                             <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
                                 <div className="text-[11px] text-brand-subtle">You receive (estimated)</div>
                                 <div className="mt-1 text-xs">
                                     <span className="text-brand-text font-mono">
                                         {removePreview.ready
-                                            ? `${formatTokenDisplay(removePreview.outA, poolMeta.tokenADecimals)} ${poolMeta.tokenASymbol
-                                            } + ${formatTokenDisplay(removePreview.outB, poolMeta.tokenBDecimals)} ${poolMeta.tokenBSymbol
-                                            }`
+                                            ? `${formatTokenDisplay(removePreview.outA, poolMeta.tokenADecimals)} ${poolMeta.tokenASymbol} + ${formatTokenDisplay(
+                                                removePreview.outB,
+                                                poolMeta.tokenBDecimals
+                                            )} ${poolMeta.tokenBSymbol}`
                                             : "—"}
                                     </span>
                                 </div>

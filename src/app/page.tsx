@@ -2,7 +2,7 @@ import { brand } from "@/lib/brand";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FaqSection } from "@/components/landing/FaqSection";
 import { FooterSection } from "@/components/landing/FooterSection";
-import { SwapSection } from "@/components/landing/SwapSection.client";
+import { SwapSection } from "@/features/swap/components/SwapSection.client";
 
 import { GallerySection } from "@/components/landing/GallerySection";
 import { MainHeader } from "@/components/MainHeader";
