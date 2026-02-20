@@ -914,7 +914,7 @@ export function LiquiditySection() {
     }, [mounted, hasAddress, wrongNetwork, isSeiEvm]);
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-black/20 to-black/5 shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-5">
+        <div className="p-5">
             {/* Header */}
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
@@ -975,7 +975,7 @@ export function LiquiditySection() {
                             id="pool-select"
                             value={pool}
                             onChange={(e) => resetPool(e.target.value as PoolKey)}
-                            className="h-10 w-[168px] appearance-none rounded-xl bg-black/20 border border-white/10 pl-3 pr-9 text-xs font-semibold text-white/80 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
+                            className="h-10 w-[168px] appearance-none rounded-lg bg-black/20 pl-3 pr-9 text-xs font-semibold text-white/80 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                         >
                             {POOLS.map((p) => (
                                 <option key={p.key} value={p.key}>
