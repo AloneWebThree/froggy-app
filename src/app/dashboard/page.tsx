@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import {
     useAccount,
+    usePublicClient,
     useReadContract,
-    useSimulateContract,
     useWriteContract,
     useWaitForTransactionReceipt,
 } from "wagmi";
@@ -35,37 +35,75 @@ function shortAddr(addr?: `0x${string}`) {
     return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(v: unknown): v is UnknownRecord {
+    return typeof v === "object" && v !== null;
+}
+
+function getStringProp(obj: UnknownRecord, key: string): string | null {
+    const val = obj[key];
+    return typeof val === "string" ? val : null;
+}
+
+function getObjectProp(obj: UnknownRecord, key: string): UnknownRecord | null {
+    const val = obj[key];
+    return isRecord(val) ? val : null;
+}
+
 function pickErrorMessage(err: unknown): string | null {
-    if (!err || typeof err !== "object") return null;
+    if (!isRecord(err)) return null;
 
-    // Narrow safely
-    if ("shortMessage" in err && typeof err.shortMessage === "string") {
-        return err.shortMessage;
-    }
+    const direct =
+        getStringProp(err, "reason") ??
+        getStringProp(err, "shortMessage") ??
+        getStringProp(err, "details") ??
+        getStringProp(err, "message");
 
-    if (
-        "cause" in err &&
-        typeof err.cause === "object" &&
-        err.cause !== null &&
-        "shortMessage" in err.cause &&
-        typeof err.cause.shortMessage === "string"
-    ) {
-        return err.cause.shortMessage;
-    }
+    if (direct) return direct;
 
-    if ("details" in err && typeof err.details === "string") {
-        return err.details;
-    }
+    const cause = getObjectProp(err, "cause");
+    if (cause) {
+        const fromCause =
+            getStringProp(cause, "reason") ??
+            getStringProp(cause, "shortMessage") ??
+            getStringProp(cause, "details") ??
+            getStringProp(cause, "message");
 
-    if ("message" in err && typeof err.message === "string") {
-        return err.message;
+        if (fromCause) return fromCause;
     }
 
     return null;
 }
 
+// Fix #2: tighter matching so we don't block fallback sends
+function isDefiniteRevertMessage(msg: string) {
+    const m = msg.toLowerCase();
+    return (
+        m.includes("check-ins paused") ||
+        m.includes("insufficient frog balance") ||
+        m.includes("already checked in today") ||
+        m.includes("balance has not increased since last check-in")
+    );
+}
+
+async function refetchWithRetry(fn: () => Promise<unknown>, tries = 3, delayMs = 350) {
+    for (let i = 0; i < tries; i++) {
+        try {
+            await fn();
+            return;
+        } catch {
+            // ignore and retry
+        }
+        if (i < tries - 1) {
+            await new Promise((r) => setTimeout(r, delayMs));
+        }
+    }
+}
+
 export default function DashboardPage() {
     const { address, isConnected, chainId } = useAccount();
+    const publicClient = usePublicClient({ chainId: SEI_EVM_CHAIN_ID });
 
     const isOnSeiEvm = chainId === SEI_EVM_CHAIN_ID;
     const wrongNetwork = chainId != null && !isOnSeiEvm;
@@ -95,13 +133,20 @@ export default function DashboardPage() {
         lastRecordedBalance,
     } = normalizeUserState(userStateRaw as UserStateTuple | undefined);
 
-    // Track today's UTC day index once on the client
+    // Track today's UTC day index on the client
     const [currentUtcDay, setCurrentUtcDay] = useState<number | null>(null);
 
     useEffect(() => {
         const nowSeconds = Date.now() / 1000;
-        const dayIndex = Math.floor(nowSeconds / 86400);
-        Promise.resolve().then(() => setCurrentUtcDay(dayIndex));
+        setCurrentUtcDay(Math.floor(nowSeconds / 86400));
+
+        // Keep it correct if tab stays open across UTC midnight
+        const id = window.setInterval(() => {
+            const s = Date.now() / 1000;
+            setCurrentUtcDay(Math.floor(s / 86400));
+        }, 60_000);
+
+        return () => window.clearInterval(id);
     }, []);
 
     // Has user already checked in today (UTC)?
@@ -145,7 +190,11 @@ export default function DashboardPage() {
     );
 
     // ===== READ: FROG token balance + decimals =====
-    const { data: frogBalanceRaw, isLoading: isLoadingBalance } = useReadContract({
+    const {
+        data: frogBalanceRaw,
+        isLoading: isLoadingBalance,
+        refetch: refetchFrogBalance,
+    } = useReadContract({
         chainId: SEI_EVM_CHAIN_ID,
         address: requireAddress("FROG"),
         abi: ERC20_ABI,
@@ -154,13 +203,14 @@ export default function DashboardPage() {
         query: { enabled: !!address && !wrongNetwork },
     });
 
+    // Fix #3: decimals only when connected (or you can hardcode if known)
     const { data: frogDecimalsRaw, isLoading: isLoadingDecimals } = useReadContract({
         chainId: SEI_EVM_CHAIN_ID,
         address: requireAddress("FROG"),
         abi: ERC20_ABI,
         functionName: "decimals",
         args: [],
-        query: { enabled: !wrongNetwork },
+        query: { enabled: !!address && !wrongNetwork },
     });
 
     const isBalanceLoading = isLoadingBalance || isLoadingDecimals;
@@ -168,7 +218,8 @@ export default function DashboardPage() {
     const frogBalance = useMemo(() => {
         if (!frogBalanceRaw || frogDecimalsRaw === undefined) return 0;
 
-        const decimals = typeof frogDecimalsRaw === "number" ? frogDecimalsRaw : Number(frogDecimalsRaw);
+        const decimals =
+            typeof frogDecimalsRaw === "number" ? frogDecimalsRaw : Number(frogDecimalsRaw);
 
         try {
             return Number(formatUnits(frogBalanceRaw as bigint, decimals));
@@ -179,12 +230,24 @@ export default function DashboardPage() {
 
     // Rule gate: current raw balance must be > lastRecordedBalance (both raw units)
     const hasIncreasedBalance = useMemo((): boolean => {
-        if (frogBalanceRaw === undefined || frogBalanceRaw === null) return false;
-        if (lastRecordedBalance === null) return true;
-        return (frogBalanceRaw as bigint) > lastRecordedBalance;
-    }, [frogBalanceRaw, lastRecordedBalance]);
+        if (frogBalanceRaw == null) return false;
 
-    // ===== WRITE: checkIn() with simulation-first (production safe) =====
+        // Contract: first-ever check-in is lastCheckInDay == 0
+        if (lastCheckInDay === 0) return true;
+
+        // Defensive: should not happen with your contract, but safe
+        if (lastRecordedBalance == null) return true;
+
+        return (frogBalanceRaw as bigint) > lastRecordedBalance;
+    }, [frogBalanceRaw, lastCheckInDay, lastRecordedBalance]);
+
+    // ===== WRITE: checkIn() (click-only simulation + fallback) =====
+    const [didAttemptCheckIn, setDidAttemptCheckIn] = useState(false);
+    const [localCheckInError, setLocalCheckInError] = useState<string | null>(null);
+
+    // Fix #4: separate "Preparing" (simulation only) from wallet/tx pending states
+    const [isSimPreparing, setIsSimPreparing] = useState(false);
+
     const shouldEnableCheckIn = useMemo(() => {
         return (
             !!address &&
@@ -204,20 +267,6 @@ export default function DashboardPage() {
     ]);
 
     const {
-        data: sim,
-        error: simError,
-        isLoading: isSimulating,
-        refetch: refetchSim,
-    } = useSimulateContract({
-        chainId: SEI_EVM_CHAIN_ID,
-        address: FROGGY_STREAK_ADDRESS,
-        abi: FROGGY_STREAK_ABI,
-        functionName: "checkIn",
-        account: address, // ensures msg.sender-specific logic is evaluated correctly
-        query: { enabled: shouldEnableCheckIn },
-    });
-
-    const {
         data: txHash,
         writeContractAsync,
         error: writeError,
@@ -231,74 +280,159 @@ export default function DashboardPage() {
             query: { enabled: !!txHash },
         });
 
-    // After confirmed check-in tx, refetch streak state
+    // After confirmed check-in tx, refetch streak state + balance (with small retry to avoid stale RPC)
     useEffect(() => {
-        if (isTxConfirmed) refetchUserState();
-    }, [isTxConfirmed, refetchUserState]);
+        if (!isTxConfirmed) return;
 
-    const txErrorMessage = useMemo(
-        () => pickErrorMessage(simError) || pickErrorMessage(writeError),
-        [simError, writeError]
-    );
+        let cancelled = false;
+
+        (async () => {
+            await refetchWithRetry(() => refetchUserState(), 3, 350);
+            await refetchWithRetry(() => refetchFrogBalance(), 3, 350);
+
+            if (!cancelled) setLocalCheckInError(null);
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isTxConfirmed, refetchUserState, refetchFrogBalance]);
+
+    const txErrorMessage = useMemo(() => pickErrorMessage(writeError), [writeError]);
+
+    // Fix #1: clear stale errors when check-in becomes irrelevant
+    useEffect(() => {
+        if (!isConnected || wrongNetwork || hasCheckedInToday) {
+            setLocalCheckInError(null);
+            // Optional reset for a “clean slate” feel:
+            // setDidAttemptCheckIn(false);
+        }
+    }, [isConnected, wrongNetwork, hasCheckedInToday]);
+
+    // Fix #5: refetch when returning to the tab (avoids stale UI)
+    useEffect(() => {
+        if (!isConnected || wrongNetwork) return;
+
+        const onFocus = () => {
+            // Don’t refetch while a tx is confirming or just confirmed (your confirm-effect handles it)
+            if (isConfirmingTx || isTxConfirmed) return;
+            refetchUserState();
+            refetchFrogBalance();
+        };
+
+        window.addEventListener("focus", onFocus);
+        return () => window.removeEventListener("focus", onFocus);
+    }, [isConnected, wrongNetwork, isConfirmingTx, isTxConfirmed, refetchUserState, refetchFrogBalance]);
 
     const handleCheckIn = async () => {
         if (!shouldEnableCheckIn) return;
 
-        // Force a fresh sim right before sending (avoids stale state)
-        const fresh = await refetchSim();
-        const request = fresh.data?.request ?? sim?.request;
-        if (!request) return;
+        // Fix #6: avoid non-null assertions
+        if (!address) return;
 
-        await writeContractAsync(request);
+        setDidAttemptCheckIn(true);
+        setLocalCheckInError(null);
+
+        try {
+            // Simulate only on click (less flaky for injected wallets)
+            if (publicClient) {
+                setIsSimPreparing(true);
+                try {
+                    const sim = await publicClient.simulateContract({
+                        address: FROGGY_STREAK_ADDRESS,
+                        abi: FROGGY_STREAK_ABI,
+                        functionName: "checkIn",
+                        account: address,
+                    });
+
+                    // stop showing "Preparing…" as soon as we move to wallet/tx
+                    setIsSimPreparing(false);
+
+                    await writeContractAsync(sim.request);
+                    return;
+                } catch (e) {
+                    setIsSimPreparing(false);
+
+                    const msg = pickErrorMessage(e) || "Simulation failed.";
+
+                    // If it looks like a real contract rule revert, show it and stop
+                    if (isDefiniteRevertMessage(msg)) {
+                        setLocalCheckInError(msg);
+                        return;
+                    }
+                    // Otherwise, fall back to sending anyway (RPC simulation can be flaky)
+                }
+            }
+
+            await writeContractAsync({
+                chainId: SEI_EVM_CHAIN_ID,
+                address: FROGGY_STREAK_ADDRESS,
+                abi: FROGGY_STREAK_ABI,
+                functionName: "checkIn",
+                account: address,
+            });
+        } catch (e) {
+            setLocalCheckInError(pickErrorMessage(e) || "Transaction failed.");
+        } finally {
+            setIsSimPreparing(false);
+        }
     };
 
     const checkInDisabled =
         !isConnected ||
         wrongNetwork ||
         isBalanceLoading ||
-        isSimulating ||
+        isSimPreparing ||
         isCheckInPending ||
         isConfirmingTx ||
         hasCheckedInToday ||
         frogBalanceRaw == null ||
-        !hasIncreasedBalance ||
-        !!simError;
+        !hasIncreasedBalance;
 
     const checkInLabel = useMemo(() => {
         if (!isConnected) return "Connect wallet to check in";
         if (wrongNetwork) return "Switch to Sei EVM";
         if (isBalanceLoading) return "Loading balance…";
         if (frogBalanceRaw == null) return "Cannot load balance…";
-        if (isSimulating) return "Preparing…";
+        if (isSimPreparing) return "Preparing…";
         if (isCheckInPending || isConfirmingTx) return "Checking in...";
         if (hasCheckedInToday) return "Checked in ✓";
-        if (!hasIncreasedBalance) return "Increase your FROG balance to check in";
-        if (simError) return "Cannot check in (see error)";
+        if (!hasIncreasedBalance) {
+            return lastCheckInDay === 0
+                ? "First check-in"
+                : "Balance must be higher than last check-in";
+        }
         return "Check in";
     }, [
         isConnected,
         wrongNetwork,
         isBalanceLoading,
         frogBalanceRaw,
-        isSimulating,
+        isSimPreparing,
         isCheckInPending,
         isConfirmingTx,
         hasCheckedInToday,
         hasIncreasedBalance,
-        simError,
+        lastCheckInDay,
     ]);
 
     const checkInColor: string = (() => {
         if (!isConnected) return "bg-[#3c3c3c] text-white/60 border border-white/10";
         if (wrongNetwork) return "bg-yellow-500 text-black hover:bg-yellow-400";
-        if (isBalanceLoading || isSimulating) return "bg-brand-primary/40 text-black/60 animate-pulse";
+        if (isBalanceLoading || isSimPreparing) return "bg-brand-primary/40 text-black/60 animate-pulse";
         if (frogBalanceRaw == null) return "bg-yellow-300 text-black hover:bg-yellow-200";
         if (isCheckInPending || isConfirmingTx) return "bg-brand-primary/70 text-black animate-pulse";
         if (hasCheckedInToday) return "bg-[#6EB819] text-[#031f18] hover:bg-[#63a417]";
         if (!hasIncreasedBalance) return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
-        if (simError) return "bg-[#e86a6a] text-black hover:bg-[#d45d5d]";
         return "bg-brand-primary text-[#081318] hover:scale-[1.02]";
     })();
+
+    const showCheckInError =
+        !!(localCheckInError || txErrorMessage) &&
+        !wrongNetwork &&
+        !hasCheckedInToday &&
+        didAttemptCheckIn &&
+        isConnected;
 
     return (
         <div className="min-h-screen w-full bg-brand-bg text-brand-text">
@@ -559,11 +693,11 @@ export default function DashboardPage() {
                                         {checkInLabel}
                                     </button>
 
-                                    {/* Production-grade error surfacing */}
-                                    {txErrorMessage && !wrongNetwork && (
+                                    {/* Non-redundant error surfacing (only after user attempts, never when already checked in) */}
+                                    {showCheckInError && (
                                         <div className="mt-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">
                                             <div className="font-semibold mb-1">Check-in error</div>
-                                            <div className="break-words">{txErrorMessage}</div>
+                                            <div className="break-words">{localCheckInError || txErrorMessage}</div>
                                         </div>
                                     )}
                                 </div>
@@ -598,7 +732,10 @@ export default function DashboardPage() {
                                                     : "border-white/10 bg-black/10 text-brand-subtle";
 
                                                 return (
-                                                    <div key={b.days} className={`rounded-xl border p-3 text-center ${tone}`}>
+                                                    <div
+                                                        key={b.days}
+                                                        className={`rounded-xl border p-3 text-center ${tone}`}
+                                                    >
                                                         <div className="text-[11px] uppercase tracking-wide opacity-80">
                                                             {b.earned ? "Unlocked" : "Locked"}
                                                         </div>
@@ -640,8 +777,8 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                     <p className="mt-1 text-xs text-brand-subtle">
-                                        Once streak milestones are live, you&apos;ll be able to claim on-chain rewards here
-                                        based on your best streak and total check-ins.
+                                        Once streak milestones are live, you&apos;ll be able to claim on-chain rewards
+                                        here based on your best streak and total check-ins.
                                     </p>
                                 </div>
 
