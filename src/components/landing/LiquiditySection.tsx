@@ -1177,15 +1177,12 @@ export function LiquiditySection() {
                             </div>
 
                             {/* Prices also visible in remove flow, under the control area */}
-                            {rateLine && (
-                                <div className="text-[11px] text-white/55 pl-1 leading-tight">
-                                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/15 px-2.5 py-1">
-                                        <span className="text-white/45">Price</span>
-                                        <span className="text-white/20">•</span>
+                                {rateLine && (
+                                    <div className="text-[11px] text-white/55 pl-1 leading-tight">
+                                        <span className="text-white/45 mr-1">Price:</span>
                                         <span className="font-mono text-white/70">{rateLine}</span>
-                                    </span>
-                                </div>
-                            )}
+                                    </div>
+                                )}
 
                             <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
                                 <div className="text-[11px] text-brand-subtle">You receive (estimated)</div>
