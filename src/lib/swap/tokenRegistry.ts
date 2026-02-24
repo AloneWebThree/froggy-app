@@ -8,7 +8,9 @@ import {
 } from "@/lib/froggyConfig";
 
 export type TokenSymbol = "SEI" | "FROG" | "USDC" | "USDY" | "DRG";
-export type FromSymbol = "SEI" | "USDY" | "DRG";
+// Historical alias: the app originally constrained "from" to a subset.
+// We now support swapping *from* any token.
+export type FromSymbol = TokenSymbol;
 
 export type TokenInfo = {
   symbol: TokenSymbol;

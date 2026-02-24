@@ -78,6 +78,9 @@ export function MainHeader() {
                         <a href="#swap" className="hover:text-white">
                             Swap
                         </a>
+                        <a href="#liquidity" className="hover:text-white">
+                            Liquidity
+                        </a>
                         <a href="#gallery" className="hover:text-white">
                             Gallery
                         </a>
@@ -172,6 +175,7 @@ export function MainHeader() {
                             {[
                                 { id: "token", label: "Token" },
                                 { id: "swap", label: "Swap" },
+                                { id: "liquidity", label: "Liquidity" },
                                 { id: "gallery", label: "Gallery" },
                                 { id: "roadmap", label: "Roadmap" },
                                 { id: "faq", label: "FAQ" },

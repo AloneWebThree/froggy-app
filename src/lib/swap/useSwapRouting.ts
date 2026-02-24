@@ -4,55 +4,100 @@
 import { useMemo } from "react";
 import { type Address } from "viem";
 import { WSEI_ADDRESS } from "@/lib/froggyConfig";
-import { getDecimals, requireAddress, type FromSymbol, type TokenSymbol } from "@/lib/swap/tokenRegistry";
+import {
+  getDecimals,
+  requireAddress,
+  TOKENS,
+  type FromSymbol,
+  type TokenSymbol,
+} from "@/lib/swap/tokenRegistry";
 
 // Keep this union aligned with SwapSuccessToast's ToSymbol type.
 export type ToSymbol = TokenSymbol;
 
+type Node = TokenSymbol;
+
+function tokenToAddr(sym: Node): Address {
+  // Router paths are always ERC20 addresses; native SEI is represented by WSEI in the path.
+  if (sym === "SEI") return WSEI_ADDRESS as Address;
+  return requireAddress(sym) as Address;
+}
+
+/**
+ * Supported connectivity graph (based on pools/routes the app already relied on):
+ * - WSEI <-> FROG
+ * - WSEI <-> USDC
+ * - WSEI <-> DRG
+ * - FROG <-> USDY
+ */
+const EDGES: ReadonlyArray<readonly [Node, Node]> = [
+  ["SEI", "FROG"],
+  ["SEI", "USDC"],
+  ["SEI", "DRG"],
+  ["FROG", "USDY"],
+];
+
+function buildAdj(): Map<Node, Node[]> {
+  const m = new Map<Node, Node[]>();
+  const add = (a: Node, b: Node) => {
+    const arr = m.get(a) ?? [];
+    arr.push(b);
+    m.set(a, arr);
+  };
+  for (const [a, b] of EDGES) {
+    add(a, b);
+    add(b, a);
+  }
+  return m;
+}
+
+function bfsPath(from: Node, to: Node): Node[] | null {
+  if (from === to) return [from];
+  const adj = buildAdj();
+
+  const q: Node[] = [from];
+  const prev = new Map<Node, Node | null>();
+  prev.set(from, null);
+
+  while (q.length) {
+    const cur = q.shift() as Node;
+    const nexts = adj.get(cur) ?? [];
+    for (const nxt of nexts) {
+      if (prev.has(nxt)) continue;
+      prev.set(nxt, cur);
+      if (nxt === to) {
+        // reconstruct
+        const path: Node[] = [];
+        let at: Node | null = to;
+        while (at) {
+          path.push(at);
+          at = prev.get(at) ?? null;
+        }
+        path.reverse();
+        return path;
+      }
+      q.push(nxt);
+    }
+  }
+  return null;
+}
+
+export function computeAllowedToSymbols(fromSymbol: FromSymbol): ToSymbol[] {
+  const allSymbols = Object.keys(TOKENS) as TokenSymbol[];
+  return allSymbols
+    .filter((s) => s !== fromSymbol)
+    .filter((s) => bfsPath(fromSymbol, s as Node) !== null) as ToSymbol[];
+}
+
 export function useSwapRouting(fromSymbol: FromSymbol, toSymbol: ToSymbol) {
-  // Constrain supported destinations based on source token.
   const allowedToSymbols = useMemo<ToSymbol[]>(() => {
-    // USDY -> FROG and USDY -> SEI
-    if (fromSymbol === "USDY") return ["FROG", "SEI"];
-
-    // DRG routes requested:
-    // - DRG -> SEI
-    // - DRG -> SEI -> FROG (output FROG)
-    if (fromSymbol === "DRG") return ["FROG", "SEI"];
-
-    // SEI -> FROG/USDC/USDY/DRG
-    return ["FROG", "USDC", "USDY", "DRG"];
+    return computeAllowedToSymbols(fromSymbol);
   }, [fromSymbol]);
 
-  // Route/path for quoting + swapping (same logic as current SwapSection)
   const path = useMemo<Address[]>(() => {
-    const FROG = requireAddress("FROG");
-    const USDC = requireAddress("USDC");
-    const USDY = requireAddress("USDY");
-    const DRG = requireAddress("DRG");
-
-    if (fromSymbol === "SEI") {
-      if (toSymbol === "USDC") return [WSEI_ADDRESS as Address, USDC as Address];
-      if (toSymbol === "USDY") return [WSEI_ADDRESS as Address, FROG as Address, USDY as Address];
-      if (toSymbol === "DRG") return [WSEI_ADDRESS as Address, DRG as Address];
-      // FROG
-      return [WSEI_ADDRESS as Address, FROG as Address];
-    }
-
-    if (fromSymbol === "USDY") {
-      if (toSymbol === "FROG") return [USDY as Address, FROG as Address];
-      // USDY -> SEI must end in WSEI for swapExactTokensForSEI
-      return [USDY as Address, FROG as Address, WSEI_ADDRESS as Address];
-    }
-
-    // fromSymbol === "DRG"
-    if (toSymbol === "FROG") {
-      // DRG -> SEI -> FROG === DRG -> WSEI -> FROG
-      return [DRG as Address, WSEI_ADDRESS as Address, FROG as Address];
-    }
-
-    // DRG -> SEI must end in WSEI for swapExactTokensForSEI
-    return [DRG as Address, WSEI_ADDRESS as Address];
+    const nodes = bfsPath(fromSymbol, toSymbol);
+    if (!nodes || nodes.length < 2) return [];
+    return nodes.map(tokenToAddr);
   }, [fromSymbol, toSymbol]);
 
   const outDecimals = useMemo(() => getDecimals(toSymbol), [toSymbol]);

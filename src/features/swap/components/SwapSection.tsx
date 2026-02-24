@@ -20,7 +20,7 @@ import {
 
 import { SwapSuccessToast, type ToSymbol } from "@/components/ui/SwapSuccessToast";
 import { SwapErrorToast } from "@/components/ui/SwapErrorToast";
-import { ApprovalToast } from "@/components/ui/ApprovalToast";
+import { ApprovalToast, type ApprovalTokenSymbol } from "@/components/ui/ApprovalToast";
 
 import { parseSeiInput } from "@/lib/swap/parseSeiInput";
 import { useSeiUsdPrice } from "@/lib/swap/hooks/useSeiUsdPrice";
@@ -30,16 +30,16 @@ import { useAllowance } from "@/lib/swap/hooks/useAllowance";
 import { useTxLifecycle } from "@/lib/swap/hooks/useTxLifecycle";
 import { ensureApproval } from "@/lib/swap/ensureApproval";
 
-import { useSwapRouting } from "@/lib/swap/useSwapRouting";
+import { computeAllowedToSymbols, useSwapRouting } from "@/lib/swap/useSwapRouting";
 import { requireAddress, getDecimals, type FromSymbol } from "@/lib/swap/tokenRegistry";
 
 import { errToMessage } from "@/lib/utils/errors";
 import { clampDecimals, formatOutDisplay, formatTokenDisplay, formatUsd } from "@/lib/utils/format";
 
+import { emitBalancesRefresh, onBalancesRefresh } from "@/lib/refresh/balancesRefresh";
+
 import { useSwapGate } from "@/features/swap/hooks/useSwapGate";
 import { useSwapForm } from "@/features/swap/hooks/useSwapForm";
-
-type ApprovalTokenSymbol = "USDY" | "DRG";
 
 function getErrorMessage(err: unknown): string {
     if (err instanceof Error) return err.message;
@@ -73,23 +73,9 @@ async function withRequestedBlockRetry<T>(fn: () => Promise<T>, tries = 2, delay
 }
 
 function allowedToForFrom(from: FromSymbol): ToSymbol[] {
-    // Mirrors your UI: from is one of SEI/USDY/DRG and "Receive" options depend on router routing rules.
-    // This matches what your current routing hook enforces in practice:
-    // - SEI can swap to FROG, USDY, DRG (and possibly SEI is blocked by UI)
-    // - USDY/DRG can swap to FROG and SEI (and possibly each other depending on router path availability)
-    //
-    // IMPORTANT: We still use `useSwapRouting(fromSymbol, toSymbol)` as the source of truth for the path.
-    // This list is only used to keep `toSymbol` valid on fromSymbol change inside the form hook.
-    switch (from) {
-        case "SEI":
-            return ["FROG", "USDY", "DRG", "SEI"] as ToSymbol[];
-        case "USDY":
-            return ["FROG", "SEI", "USDY"] as ToSymbol[];
-        case "DRG":
-            return ["FROG", "SEI", "DRG"] as ToSymbol[];
-        default:
-            return ["FROG"] as ToSymbol[];
-    }
+    // Keep `toSymbol` valid when `fromSymbol` changes.
+    // Real routing truth comes from `useSwapRouting`.
+    return computeAllowedToSymbols(from);
 }
 
 export function SwapSection() {
@@ -108,7 +94,6 @@ export function SwapSection() {
         initialFrom: "SEI" as FromSymbol,
         initialTo: "FROG" as ToSymbol,
         debounceMs: 300,
-        initialSlippageBps: 200,
         getAllowedToSymbols: (from) => allowedToForFrom(from),
     });
 
@@ -238,12 +223,7 @@ export function SwapSection() {
         try {
             if (!/^\d*\.?\d*$/.test(amount)) return null;
 
-            if (fromSymbol === "USDY") {
-                const units = parseUnits(amount as `${string}`, getDecimals("USDY"));
-                return units > 0n ? units : null;
-            }
-
-            const units = parseUnits(amount as `${string}`, getDecimals("DRG"));
+            const units = parseUnits(amount as `${string}`, getDecimals(fromSymbol));
             return units > 0n ? units : null;
         } catch {
             return null;
@@ -258,12 +238,7 @@ export function SwapSection() {
         try {
             if (!/^\d*\.?\d*$/.test(debouncedAmount)) return null;
 
-            if (fromSymbol === "USDY") {
-                const units = parseUnits(debouncedAmount as `${string}`, getDecimals("USDY"));
-                return units > 0n ? units : null;
-            }
-
-            const units = parseUnits(debouncedAmount as `${string}`, getDecimals("DRG"));
+            const units = parseUnits(debouncedAmount as `${string}`, getDecimals(fromSymbol));
             return units > 0n ? units : null;
         } catch {
             return null;
@@ -275,16 +250,18 @@ export function SwapSection() {
     const fromUsdValue = useMemo(() => {
         if (amountInNumber <= 0) return null;
         if (fromSymbol === "SEI") return seiUsdPrice !== null ? amountInNumber * seiUsdPrice : null;
+        if (fromSymbol === "USDC") return amountInNumber;
         if (fromSymbol === "USDY") return usdyUsdPrice !== null ? amountInNumber * usdyUsdPrice : null;
-        return drgUsdPrice !== null ? amountInNumber * drgUsdPrice : null;
-    }, [amountInNumber, fromSymbol, seiUsdPrice, usdyUsdPrice, drgUsdPrice]);
+        if (fromSymbol === "DRG") return drgUsdPrice !== null ? amountInNumber * drgUsdPrice : null;
+        return frogUsdPrice !== null ? amountInNumber * frogUsdPrice : null;
+    }, [amountInNumber, fromSymbol, seiUsdPrice, usdyUsdPrice, drgUsdPrice, frogUsdPrice]);
 
     const SLIPPAGE_BPS = 200;
 
     const quote = useSwapQuote({
         routerAddress,
         routerAbi,
-        amountIn: canReadOnSei ? amountInRawForQuote : null,
+        amountIn: canReadOnSei && v2Path.length >= 2 ? amountInRawForQuote : null,
         path: v2Path,
         decimals: outDecimals,
         slippageBps: SLIPPAGE_BPS,
@@ -320,6 +297,24 @@ export function SwapSection() {
         query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
     });
 
+    const { data: frogBalanceRaw, refetch: refetchFrogBalance } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: requireAddress("FROG"),
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: address ? [address as Address] : undefined,
+        query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
+    });
+
+    const { data: usdcBalanceRaw, refetch: refetchUsdcBalance } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: requireAddress("USDC"),
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: address ? [address as Address] : undefined,
+        query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
+    });
+
     const { data: drgBalanceRaw, refetch: refetchDrgBalance } = useReadContract({
         chainId: SEI_EVM_CHAIN_ID,
         address: requireAddress("DRG"),
@@ -342,12 +337,15 @@ export function SwapSection() {
         }
 
         if (fromSymbol === "USDY") return typeof usdyBalanceRaw === "bigint" ? usdyBalanceRaw : null;
-        return typeof drgBalanceRaw === "bigint" ? drgBalanceRaw : null;
-    }, [hasAddress, canReadOnSei, fromSymbol, seiBalance?.value, usdyBalanceRaw, drgBalanceRaw, SEI_GAS_BUFFER_RAW]);
+        if (fromSymbol === "DRG") return typeof drgBalanceRaw === "bigint" ? drgBalanceRaw : null;
+        if (fromSymbol === "FROG") return typeof frogBalanceRaw === "bigint" ? frogBalanceRaw : null;
+        if (fromSymbol === "USDC") return typeof usdcBalanceRaw === "bigint" ? usdcBalanceRaw : null;
+        return null;
+    }, [hasAddress, canReadOnSei, fromSymbol, seiBalance?.value, usdyBalanceRaw, drgBalanceRaw, frogBalanceRaw, usdcBalanceRaw, SEI_GAS_BUFFER_RAW]);
 
     const fromBalanceDisplay = useMemo(() => {
         if (fromBalanceRaw === null) return null;
-        const decimals = fromSymbol === "SEI" ? 18 : fromSymbol === "USDY" ? getDecimals("USDY") : getDecimals("DRG");
+        const decimals = fromSymbol === "SEI" ? 18 : getDecimals(fromSymbol);
         return formatTokenDisplay(fromBalanceRaw, decimals);
     }, [fromBalanceRaw, fromSymbol]);
 
@@ -359,18 +357,15 @@ export function SwapSection() {
 
     const handleMax = useCallback(() => {
         if (fromBalanceRaw === null) return;
-        const decimals = fromSymbol === "SEI" ? 18 : fromSymbol === "USDY" ? getDecimals("USDY") : getDecimals("DRG");
+        const decimals = fromSymbol === "SEI" ? 18 : getDecimals(fromSymbol);
         const full = formatUnits(fromBalanceRaw, decimals);
         setAmount(clampDecimals(full, 6));
     }, [fromBalanceRaw, fromSymbol, setAmount]);
 
     // ========= Allowances =========
 
-    const allowanceToken =
-        fromSymbol === "USDY" ? ("USDY" as const) : fromSymbol === "DRG" ? ("DRG" as const) : ("SEI" as const);
-
     const { allowance: tokenAllowance, refetch: refetchTokenAllowance } = useAllowance({
-        token: allowanceToken,
+        token: fromSymbol,
         owner: address as Address | undefined,
         spender: routerAddress,
         enabled: !!address && canReadOnSei && fromSymbol !== "SEI",
@@ -385,14 +380,48 @@ export function SwapSection() {
     const { isConfirming, isConfirmed: isTxConfirmed } = useTxLifecycle(txHash as `0x${string}` | undefined);
 
     const txLockRef = useRef(false);
+    // Avoid SSR hydration traps: generate the random refresh source only on the client.
+    const refreshSourceRef = useRef<string>("swap");
+    useEffect(() => {
+        try {
+            refreshSourceRef.current = `swap-${crypto.randomUUID()}`;
+        } catch {
+            refreshSourceRef.current = `swap-${Date.now()}`;
+        }
+    }, []);
+
+    // Listen for app-wide refresh signals (e.g., Liquidity changed balances).
+    useEffect(() => {
+        if (!mounted) return;
+
+        return onBalancesRefresh((detail) => {
+            if (detail?.source && detail.source === refreshSourceRef.current) return;
+            void refetchSeiBalance();
+            void refetchUsdyBalance();
+            void refetchFrogBalance();
+            void refetchUsdcBalance();
+            void refetchDrgBalance();
+        });
+    }, [mounted, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchUsdcBalance, refetchDrgBalance]);
 
     useEffect(() => {
         if (!isTxConfirmed) return;
+
         void refetchSeiBalance();
         void refetchUsdyBalance();
+        void refetchFrogBalance();
+        void refetchUsdcBalance();
         void refetchDrgBalance();
         void refetchTokenAllowance();
-    }, [isTxConfirmed, refetchSeiBalance, refetchUsdyBalance, refetchDrgBalance, refetchTokenAllowance]);
+
+        // Only broadcast on actual swaps (not approvals), so Liquidity refreshes too.
+        const hash = txHash as string | undefined;
+        if (!hash) return;
+        const meta = txMetaByHashRef.current.get(hash);
+        if (meta?.kind === "swap") {
+            emitBalancesRefresh(refreshSourceRef.current);
+        }
+    }, [isTxConfirmed, txHash, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchUsdcBalance, refetchDrgBalance, refetchTokenAllowance]);
 
     useEffect(() => {
         if (!isTxConfirmed || !txHash) return;
@@ -450,6 +479,11 @@ export function SwapSection() {
 
             if (!quote.minOut) {
                 pushError(quote.errorMessage || "No quote available for this amount.");
+                return;
+            }
+
+            if (!v2Path || v2Path.length < 2) {
+                pushError("No swap route available for this pair.");
                 return;
             }
 
@@ -522,7 +556,7 @@ export function SwapSection() {
                     return;
                 }
 
-                const tokenIn = fromSymbol === "USDY" ? requireAddress("USDY") : requireAddress("DRG");
+                const tokenIn = requireAddress(fromSymbol);
                 const currentAllowance = tokenAllowance ?? 0n;
 
                 if (currentAllowance < amountIn) {
@@ -539,7 +573,7 @@ export function SwapSection() {
                                     approveExact,
                                     writeContractAsync: async (args) => {
                                         const h = await writeContractAsync(args);
-                                        const approvalToken: ApprovalTokenSymbol = fromSymbol === "USDY" ? "USDY" : "DRG";
+                                        const approvalToken: ApprovalTokenSymbol = fromSymbol as Exclude<FromSymbol, "SEI">;
                                         recordTxMeta("approve", h, { approvalToken });
                                         return h;
                                     },
@@ -711,7 +745,7 @@ export function SwapSection() {
     const showApproveToggle = fromSymbol !== "SEI";
 
     return (
-        <section className="mx-auto max-w-6xl px-4 pb-14">
+        <section id="swap" className="scroll-mt-20 mx-auto max-w-6xl px-4 pb-14">
             <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
             <p className="mt-2 text-slate-300/90 text-sm leading-snug">Swap tokens directly from the dApp.</p>
 
@@ -724,7 +758,7 @@ export function SwapSection() {
                         className="w-full flex-1"
                         loading="lazy"
                         referrerPolicy="no-referrer"
-                        sandbox="allow-same-origin allow-scripts allow-popups"
+                        sandbox="allow-same-origin allow-scripts"
                     />
                     <div className="border-t border-white/10 bg-black/20 backdrop-blur px-3 py-2 flex items-center gap-2">
                         <div className="text-xs text-brand-subtle">Pair</div>
@@ -752,7 +786,7 @@ export function SwapSection() {
                 </div>
 
                 {/* Right: swap card */}
-                <div id="swap" className={`rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col ${panelHeight} overflow-hidden`}>
+                <div className={`rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col ${panelHeight} overflow-hidden`}>
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
                             <div className="text-sm text-brand-subtle">Quick Action</div>
@@ -776,6 +810,8 @@ export function SwapSection() {
                                         className="h-9 w-full rounded-lg bg-black/20 px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/30"
                                     >
                                         <option value="SEI">SEI</option>
+                                        <option value="FROG">FROG</option>
+                                        <option value="USDC">USDC</option>
                                         <option value="USDY">USDY</option>
                                         <option value="DRG">DRG</option>
                                     </select>

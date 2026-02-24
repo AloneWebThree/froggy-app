@@ -5,7 +5,7 @@ import { LiquiditySection } from "@/components/landing/LiquiditySection";
 
 export function LiquidityLandingSection() {
     return (
-        <section className="mx-auto max-w-6xl px-4 pb-14">
+        <section id="liquidity" className="scroll-mt-20 mx-auto max-w-6xl px-4 pb-14">
             <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                     <h2 className="text-2xl md:text-3xl font-bold">Liquidity</h2>

@@ -9,8 +9,6 @@ export type SwapFormState<From extends string, To extends string> = {
   amount: string;
   debouncedAmount: string;
 
-  slippageBps: number;
-
   approveExact: boolean;
 
   // setters (support value OR functional-updater where useful)
@@ -18,7 +16,6 @@ export type SwapFormState<From extends string, To extends string> = {
   setToSymbol: (next: To | ((prev: To) => To)) => void;
 
   setAmount: (v: string) => void;
-  setSlippageBps: (v: number) => void;
 
   setApproveExact: (next: boolean | ((prev: boolean) => boolean)) => void;
 };
@@ -28,7 +25,6 @@ export type UseSwapFormArgs<From extends string, To extends string> = {
   initialTo: To;
 
   initialAmount?: string;
-  initialSlippageBps?: number;
 
   debounceMs?: number;
 
@@ -46,7 +42,6 @@ export function useSwapForm<From extends string, To extends string>(
     initialFrom,
     initialTo,
     initialAmount = "",
-    initialSlippageBps = 200,
     debounceMs = 300,
     getAllowedToSymbols,
   } = args;
@@ -56,8 +51,6 @@ export function useSwapForm<From extends string, To extends string>(
 
   const [amount, setAmount] = useState<string>(initialAmount);
   const [debouncedAmount, setDebouncedAmount] = useState<string>(initialAmount);
-
-  const [slippageBps, setSlippageBps] = useState<number>(initialSlippageBps);
 
   const [approveExact, _setApproveExact] = useState<boolean>(true);
 
@@ -98,14 +91,12 @@ export function useSwapForm<From extends string, To extends string>(
       toSymbol,
       amount,
       debouncedAmount,
-      slippageBps,
       approveExact,
       setFromSymbol,
       setToSymbol,
       setAmount,
-      setSlippageBps,
       setApproveExact,
     }),
-    [fromSymbol, toSymbol, amount, debouncedAmount, slippageBps, approveExact, setFromSymbol, setToSymbol, setApproveExact]
+    [fromSymbol, toSymbol, amount, debouncedAmount, approveExact, setFromSymbol, setToSymbol, setApproveExact]
   );
 }

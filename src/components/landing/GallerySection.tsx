@@ -153,7 +153,7 @@ export function GallerySection() {
         <section
             ref={galleryRef}
             id="gallery"
-            className="mx-auto max-w-6xl px-4 pb-14"
+            className="scroll-mt-20 mx-auto max-w-6xl px-4 pb-14"
         >
             <h2
                 id="gallery-heading"

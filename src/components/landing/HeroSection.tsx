@@ -80,7 +80,7 @@ export function HeroSection() {
     }
 
     return (
-        <section id="home" className="relative">
+        <section id="home" className="scroll-mt-20 relative">
             <div
                 className="absolute inset-0 -z-10 opacity-30"
                 style={{

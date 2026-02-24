@@ -13,7 +13,7 @@ const supplyDistribution: DonutSlice[] = [
 
 export function TokenSection() {
     return (
-        <section id="token" className="mx-auto max-w-6xl px-4 pt-6 pb-14">
+        <section id="token" className="scroll-mt-20 mx-auto max-w-6xl px-4 pt-6 pb-14">
             <h2 className="text-2xl md:text-3xl font-bold">Token Metrics</h2>
             <p className="mt-2 text-brand-subtle text-sm leading-snug text-center md:text-left">
                 Core tokenomics for the Froggy ecosystem.

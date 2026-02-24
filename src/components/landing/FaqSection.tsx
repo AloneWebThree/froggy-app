@@ -25,7 +25,7 @@ export function FaqSection() {
     ];
 
     return (
-        <section id="faq" className="mx-auto max-w-6xl px-4 pb-20">
+        <section id="faq" className="scroll-mt-20 mx-auto max-w-6xl px-4 pb-20">
             <h2 className="text-2xl md:text-3xl font-bold">FAQ</h2>
             <p className="mt-2 text-slate-300/90 text-sm leading-snug">
                 Common questions about $FROG and its ecosystem.

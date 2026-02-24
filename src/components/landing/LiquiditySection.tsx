@@ -22,6 +22,7 @@ import {
 import { requireAddress, getDecimals } from "@/lib/swap/tokenRegistry";
 import { errToMessage } from "@/lib/utils/errors";
 import { clampDecimals, formatTokenDisplay } from "@/lib/utils/format";
+import { emitBalancesRefresh, onBalancesRefresh } from "@/lib/refresh/balancesRefresh";
 import type { WriteContractParameters } from "wagmi/actions";
 
 type PoolKey = "SEI_FROG" | "USDY_FROG";
@@ -90,7 +91,8 @@ function sanitizeTxRequest(req: AnyWriteReq): AnyWriteReq {
 
 function formatCompactNumber(n: number, maxFrac = 2) {
     if (!Number.isFinite(n)) return String(n);
-    return new Intl.NumberFormat(undefined, {
+    // Fixed locale prevents SSR/client locale mismatches.
+    return new Intl.NumberFormat("en-US", {
         notation: "compact",
         maximumFractionDigits: maxFrac,
     }).format(n);
@@ -101,7 +103,8 @@ function reserveFmt(formatted: string) {
     if (!Number.isFinite(v)) return formatted;
     if (v >= 1_000_000) return formatCompactNumber(v, 1);
     if (v >= 10_000) return formatCompactNumber(v, 2);
-    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(v);
+    // Fixed locale prevents SSR/client locale mismatches.
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(v);
 }
 
 export function LiquiditySection() {
@@ -127,6 +130,16 @@ export function LiquiditySection() {
 
     const seiPublicClient = usePublicClient({ chainId: SEI_EVM_CHAIN_ID });
     const { writeContractAsync, isPending } = useWriteContract();
+
+    // Avoid SSR hydration traps: generate the random refresh source only on the client.
+    const refreshSourceRef = useRef<string>("liquidity");
+    useEffect(() => {
+        try {
+            refreshSourceRef.current = `liquidity-${crypto.randomUUID()}`;
+        } catch {
+            refreshSourceRef.current = `liquidity-${Date.now()}`;
+        }
+    }, []);
 
     const routerAddress = DRAGON_ROUTER_ADDRESS as Address;
     const routerAbi = DRAGON_ROUTER_ABI as unknown as Abi;
@@ -291,6 +304,20 @@ export function LiquiditySection() {
     // Manual "tick" to refresh reserves immediately after tx
     const [refreshTick, setRefreshTick] = useState(0);
 
+    // Listen for app-wide refresh signals (e.g., Swap changed balances).
+    useEffect(() => {
+        if (!mounted) return;
+
+        return onBalancesRefresh((detail) => {
+            if (detail?.source && detail.source === refreshSourceRef.current) return;
+            void refetchSeiBal();
+            void refetchUsdyBal();
+            void refetchFrogBal();
+            void refetchLpBal();
+            setRefreshTick((x) => x + 1);
+        });
+    }, [mounted, refetchSeiBal, refetchUsdyBal, refetchFrogBal, refetchLpBal]);
+
     useEffect(() => {
         const client = seiPublicClient;
         if (!canReadOnSei || !client) {
@@ -439,7 +466,8 @@ export function LiquiditySection() {
         const aPerB = a / b;
 
         const fmt = (x: number) =>
-            new Intl.NumberFormat(undefined, { maximumFractionDigits: x >= 1000 ? 2 : x >= 1 ? 4 : 8 }).format(x);
+            // Fixed locale prevents SSR/client locale mismatches.
+            new Intl.NumberFormat("en-US", { maximumFractionDigits: x >= 1000 ? 2 : x >= 1 ? 4 : 8 }).format(x);
 
         return `1 ${poolMeta.tokenASymbol} ≈ ${fmt(bPerA)} ${poolMeta.tokenBSymbol} • 1 ${poolMeta.tokenBSymbol} ≈ ${fmt(
             aPerB
@@ -633,6 +661,7 @@ export function LiquiditySection() {
                 const refetches: Promise<unknown>[] = [refetchFrogBal(), refetchLpBal(), refetchSeiBal()];
                 await Promise.allSettled(refetches);
                 setRefreshTick((x) => x + 1);
+                emitBalancesRefresh(refreshSourceRef.current);
 
                 // Clear inputs to prevent accidental double-submit
                 setAmountA("");
@@ -667,6 +696,7 @@ export function LiquiditySection() {
             const refetches: Promise<unknown>[] = [refetchFrogBal(), refetchLpBal(), refetchUsdyBal()];
             await Promise.allSettled(refetches);
             setRefreshTick((x) => x + 1);
+            emitBalancesRefresh(refreshSourceRef.current);
 
             // Clear inputs to prevent accidental double-submit
             setAmountA("");
@@ -773,6 +803,7 @@ export function LiquiditySection() {
 
                 await Promise.allSettled([refetchSeiBal(), refetchFrogBal(), refetchLpBal(), refetchUsdyBal()]);
                 setRefreshTick((x) => x + 1);
+                emitBalancesRefresh(refreshSourceRef.current);
 
                 // Clear remove state
                 setRemovePct(0);
@@ -800,6 +831,7 @@ export function LiquiditySection() {
 
             await Promise.allSettled([refetchUsdyBal(), refetchFrogBal(), refetchLpBal(), refetchSeiBal()]);
             setRefreshTick((x) => x + 1);
+            emitBalancesRefresh(refreshSourceRef.current);
 
             // Clear remove state
             setRemovePct(0);
