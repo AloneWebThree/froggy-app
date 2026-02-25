@@ -6,7 +6,7 @@ import Image from "next/image";
 import { type Address, type Abi, parseUnits, formatUnits } from "viem";
 import { useWriteContract, useReadContract, useBalance, usePublicClient } from "wagmi";
 
-import LiveStats from "@/components/LiveStats";
+import LiveStats from "@/components/layout/LiveStats";
 import { CopyButton } from "@/components/landing/CopyButton";
 import {
     ADDR,
@@ -16,22 +16,22 @@ import {
     DRAGON_ROUTER_ABI,
     WSEI_ADDRESS,
     ERC20_ABI,
-} from "@/lib/froggyConfig";
+} from "@/lib/chain/froggyConfig";
 
-import { SwapSuccessToast, type ToSymbol } from "@/components/ui/SwapSuccessToast";
-import { SwapErrorToast } from "@/components/ui/SwapErrorToast";
-import { ApprovalToast, type ApprovalTokenSymbol } from "@/components/ui/ApprovalToast";
+import { SwapSuccessToast, type ToSymbol } from "@/features/swap/components/SwapSuccessToast";
+import { SwapErrorToast } from "@/features/swap/components/SwapErrorToast";
+import { ApprovalToast, type ApprovalTokenSymbol } from "@/features/swap/components/ApprovalToast";
 
-import { parseSeiInput } from "@/lib/swap/parseSeiInput";
-import { useSeiUsdPrice } from "@/lib/swap/hooks/useSeiUsdPrice";
-import { useSwapQuote } from "@/lib/swap/hooks/useSwapQuote";
-import { useTokenUsdPriceFromRouter } from "@/lib/swap/hooks/useTokenUsdPriceFromRouter";
-import { useAllowance } from "@/lib/swap/hooks/useAllowance";
-import { useTxLifecycle } from "@/lib/swap/hooks/useTxLifecycle";
-import { ensureApproval } from "@/lib/swap/ensureApproval";
+import { parseSeiInput } from "@/features/swap/services/parseSeiInput";
+import { useSeiUsdPrice } from "@/features/swap/hooks/useSeiUsdPrice";
+import { useSwapQuote } from "@/features/swap/hooks/useSwapQuote";
+import { useTokenUsdPriceFromRouter } from "@/features/swap/hooks/useTokenUsdPriceFromRouter";
+import { useAllowance } from "@/features/swap/hooks/useAllowance";
+import { useTxLifecycle } from "@/features/swap/hooks/useTxLifecycle";
+import { ensureApproval } from "@/features/swap/services/ensureApproval";
 
-import { computeAllowedToSymbols, useSwapRouting } from "@/lib/swap/useSwapRouting";
-import { requireAddress, getDecimals, type FromSymbol } from "@/lib/swap/tokenRegistry";
+import { computeAllowedToSymbols, useSwapRouting } from "@/features/swap/services/useSwapRouting";
+import { requireAddress, getDecimals, type FromSymbol } from "@/lib/tokens/registry";
 
 import { errToMessage } from "@/lib/utils/errors";
 import { clampDecimals, formatOutDisplay, formatTokenDisplay, formatUsd } from "@/lib/utils/format";
@@ -755,8 +755,20 @@ export function SwapSection() {
 
     return (
         <section id="swap" className="scroll-mt-20 mx-auto max-w-6xl px-4 pb-14">
-            <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
-            <p className="mt-2 text-slate-300/90 text-sm leading-snug">Swap tokens directly from the dApp.</p>
+            <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+                <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
+                <p className="mt-2 text-slate-300/90 text-sm leading-snug">Swap tokens directly from the dApp.</p>
+            </div>
+
+            <Image
+                src="/swap.png"
+                width={72}
+                height={72}
+                className="rounded-full shrink-0 opacity-90"
+                alt="Froggy icon"
+                />
+            </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1.15fr] md:items-stretch">
                 {/* Left: chart */}
@@ -804,7 +816,6 @@ export function SwapSection() {
                             </h3>
                             <p className="mt-1 text-xs text-brand-subtle">{helpLine}</p>
                         </div>
-                        <Image src="/froggy-cape.png" width={80} height={80} className="rounded-full shrink-0" alt="Froggy icon" />
                     </div>
 
                     <div className="mt-4 flex-1 overflow-y-auto overflow-x-hidden pr-4" style={{ scrollbarGutter: "stable" }}>

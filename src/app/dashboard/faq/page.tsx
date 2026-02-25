@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import StreakInfo from "@/components/dashboard/streakInfo";
+import StreakInfo from "@/features/streak/components/StreakInfo";
 
 export default function FAQPage() {
     return (

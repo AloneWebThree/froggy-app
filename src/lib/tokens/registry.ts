@@ -5,7 +5,7 @@ import {
   USDY_ADDRESS,
   DRG_TOKEN_ADDRESS,
   WBTC_ADDRESS,
-} from "@/lib/froggyConfig";
+} from "@/lib/chain/froggyConfig";
 
 export type TokenSymbol = "SEI" | "FROG" | "WBTC" | "USDY" | "DRG";
 // Historical alias: the app originally constrained "from" to a subset.

@@ -1,6 +1,6 @@
 "use client";
 
-import { brand } from "@/lib/brand";
+import { brand } from "@/lib/utils/brand";
 
 export function RoadmapSection() {
     const phases = [

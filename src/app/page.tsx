@@ -1,11 +1,11 @@
-import { brand } from "@/lib/brand";
+import { brand } from "@/lib/utils/brand";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FaqSection } from "@/components/landing/FaqSection";
 import { FooterSection } from "@/components/landing/FooterSection";
 import { SwapSection } from "@/features/swap/components/SwapSection.client";
 
 import { GallerySection } from "@/components/landing/GallerySection";
-import { MainHeader } from "@/components/MainHeader";
+import { MainHeader } from "@/components/layout/MainHeader";
 import { TokenSection } from "@/components/landing/TokenSection";
 import { RoadmapSection } from "@/components/landing/RoadmapSection";
 import { LiquidityLandingSection } from "@/components/landing/LiquidityLandingSection";

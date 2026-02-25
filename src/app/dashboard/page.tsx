@@ -11,8 +11,8 @@ import {
     useWaitForTransactionReceipt,
 } from "wagmi";
 
-import { WalletButton } from "@/components/WalletButton";
-import LiveStats from "@/components/LiveStats";
+import { WalletButton } from "@/components/layout/WalletButton";
+import LiveStats from "@/components/layout/LiveStats";
 
 import {
     SEI_EVM_CHAIN_ID,
@@ -20,9 +20,9 @@ import {
     FROGGY_STREAK_ADDRESS,
     FROGGY_STREAK_ABI,
     ERC20_ABI,
-} from "@/lib/froggyConfig";
+} from "@/lib/chain/froggyConfig";
 
-import { requireAddress } from "@/lib/swap/tokenRegistry";
+import { requireAddress } from "@/lib/tokens/registry";
 import {
     normalizeUserState,
     type UserStateTuple,

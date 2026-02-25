@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Twitter, Send } from "lucide-react";
 
-import { WalletButton } from "@/components/WalletButton";
+import { WalletButton } from "@/components/layout/WalletButton";
 
 export function MainHeader() {
     const [menuOpen, setMenuOpen] = useState(false);

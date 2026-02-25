@@ -18,8 +18,8 @@ import {
     DRAGON_ROUTER_ABI,
     WSEI_ADDRESS,
     ERC20_ABI,
-} from "@/lib/froggyConfig";
-import { requireAddress, getDecimals } from "@/lib/swap/tokenRegistry";
+} from "@/lib/chain/froggyConfig";
+import { requireAddress, getDecimals } from "@/lib/tokens/registry";
 import { errToMessage } from "@/lib/utils/errors";
 import { clampDecimals, formatTokenDisplay } from "@/lib/utils/format";
 import { emitBalancesRefresh, onBalancesRefresh } from "@/lib/refresh/balancesRefresh";

@@ -3,14 +3,14 @@
 
 import { useMemo } from "react";
 import { type Address } from "viem";
-import { WSEI_ADDRESS } from "@/lib/froggyConfig";
+import { WSEI_ADDRESS } from "@/lib/chain/froggyConfig";
 import {
   getDecimals,
   requireAddress,
   TOKENS,
   type FromSymbol,
   type TokenSymbol,
-} from "@/lib/swap/tokenRegistry";
+} from "@/lib/tokens/registry";
 
 // Keep this union aligned with SwapSuccessToast's ToSymbol type.
 export type ToSymbol = TokenSymbol;

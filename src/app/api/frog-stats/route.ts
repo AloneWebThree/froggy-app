@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { FROG_PAIR_ADDRESS } from "@/lib/froggyConfig";
+import { FROG_PAIR_ADDRESS } from "@/lib/chain/froggyConfig";
 
 export const revalidate = 60; // seconds (shared cache)
 

@@ -3,7 +3,7 @@
 
 import { useWriteContract } from "wagmi";
 import type { Abi, Address } from "viem";
-import { ERC20_ABI, SEI_EVM_CHAIN_ID } from "@/lib/froggyConfig";
+import { ERC20_ABI, SEI_EVM_CHAIN_ID } from "@/lib/chain/froggyConfig";
 
 type ApproveArgs = {
   token: Address;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
-import { SEI_EVM_CHAIN_ID } from "@/lib/froggyConfig";
+import { SEI_EVM_CHAIN_ID } from "@/lib/chain/froggyConfig";
 
 export type SwapGate = {
   mounted: boolean;

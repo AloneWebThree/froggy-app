@@ -5,8 +5,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 
-import { requireAddress } from "@/lib/swap/tokenRegistry";
-import { brand } from "@/lib/brand";
+import { requireAddress } from "@/lib/tokens/registry";
+import { brand } from "@/lib/utils/brand";
 import froggySamurai from "@public/gallery/froggy-samurai.png";
 
 function truncateAddr(addr: string) {

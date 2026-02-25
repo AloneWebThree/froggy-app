@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { sei, SEI_RPC_URL } from "@/lib/sei";
+import { sei, SEI_RPC_URL } from "@/lib/chain/sei";
 
 // --- wagmi config: injected only (browser wallets) ---
 export const config = createConfig({

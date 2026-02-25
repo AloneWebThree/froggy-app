@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { LiquiditySection } from "@/components/landing/LiquiditySection";
+import { LiquiditySection } from "@/features/liquidity/components/LiquiditySection";
 
 export function LiquidityLandingSection() {
     return (
@@ -15,9 +15,9 @@ export function LiquidityLandingSection() {
                 </div>
 
                 <Image
-                    src="/froggy-cash.png"
-                    width={88}
-                    height={88}
+                    src="/liquidity.png"
+                    width={72}
+                    height={72}
                     className="rounded-full shrink-0 opacity-90"
                     alt="Froggy icon"
                 />
