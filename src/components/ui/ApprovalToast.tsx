@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
-export type ApprovalTokenSymbol = "USDY" | "DRG" | "FROG" | "USDC";
+export type ApprovalTokenSymbol = "USDY" | "DRG" | "FROG" | "WBTC";
 
 type ApprovalToastProps = {
     open: boolean;

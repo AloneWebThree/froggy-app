@@ -25,7 +25,7 @@ import { clampDecimals, formatTokenDisplay } from "@/lib/utils/format";
 import { emitBalancesRefresh, onBalancesRefresh } from "@/lib/refresh/balancesRefresh";
 import type { WriteContractParameters } from "wagmi/actions";
 
-type PoolKey = "SEI_FROG" | "USDY_FROG";
+type PoolKey = "SEI_FROG" | "USDY_FROG" | "WBTC_FROG";
 type LiqMode = "ADD" | "REMOVE";
 
 const PAIR_ABI = [
@@ -147,12 +147,14 @@ export function LiquiditySection() {
 
     const frog = requireAddress("FROG");
     const usdy = requireAddress("USDY");
+    const wbtc = requireAddress("WBTC");
 
     const POOLS = useMemo(
         () =>
             [
                 { key: "SEI_FROG" as const, label: "SEI / FROG" },
                 { key: "USDY_FROG" as const, label: "USDY / FROG" },
+                { key: "WBTC_FROG" as const, label: "WBTC / FROG" },
                 // future: add more pools here
             ] satisfies Array<{ key: PoolKey; label: string }>,
         []
@@ -175,17 +177,30 @@ export function LiquiditySection() {
             };
         }
 
+        if (pool === "USDY_FROG") {
+            return {
+                pair: ADDR.usdyFrogPair as Address,
+                tokenA_forReserves: usdy,
+                tokenB: frog,
+                tokenASymbol: "USDY" as const,
+                tokenBSymbol: "FROG" as const,
+                tokenADecimals: getDecimals("USDY"),
+                tokenBDecimals: getDecimals("FROG"),
+                mode: "ERC20" as const,
+            };
+        }
+
         return {
-            pair: ADDR.usdyFrogPair as Address,
-            tokenA_forReserves: usdy,
+            pair: ADDR.wbtcFrogPair as Address,
+            tokenA_forReserves: wbtc,
             tokenB: frog,
-            tokenASymbol: "USDY" as const,
+            tokenASymbol: "WBTC" as const,
             tokenBSymbol: "FROG" as const,
-            tokenADecimals: getDecimals("USDY"),
+            tokenADecimals: getDecimals("WBTC"),
             tokenBDecimals: getDecimals("FROG"),
             mode: "ERC20" as const,
         };
-    }, [pool, frog, usdy]);
+    }, [pool, frog, usdy, wbtc]);
 
     const [amountA, setAmountA] = useState("");
     const [amountB, setAmountB] = useState("");
@@ -226,6 +241,15 @@ export function LiquiditySection() {
         query: { enabled: !!address && canReadOnSei && poolMeta.tokenASymbol === "USDY", staleTime: 5_000 },
     });
 
+    const { data: wbtcBalRaw, refetch: refetchWbtcBal } = useReadContract({
+        chainId: SEI_EVM_CHAIN_ID,
+        address: wbtc,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: address ? [address as Address] : undefined,
+        query: { enabled: !!address && canReadOnSei && poolMeta.tokenASymbol === "WBTC", staleTime: 5_000 },
+    });
+
     const { data: frogBalRaw, refetch: refetchFrogBal } = useReadContract({
         chainId: SEI_EVM_CHAIN_ID,
         address: frog,
@@ -262,8 +286,10 @@ export function LiquiditySection() {
             if (typeof raw !== "bigint") return null;
             return raw > SEI_GAS_BUFFER_RAW ? raw - SEI_GAS_BUFFER_RAW : 0n;
         }
-        return typeof usdyBalRaw === "bigint" ? usdyBalRaw : null;
-    }, [address, canReadOnSei, poolMeta.tokenASymbol, seiBal?.value, usdyBalRaw, SEI_GAS_BUFFER_RAW]);
+        if (poolMeta.tokenASymbol === "USDY") return typeof usdyBalRaw === "bigint" ? usdyBalRaw : null;
+        if (poolMeta.tokenASymbol === "WBTC") return typeof wbtcBalRaw === "bigint" ? wbtcBalRaw : null;
+        return null;
+    }, [address, canReadOnSei, poolMeta.tokenASymbol, seiBal?.value, usdyBalRaw, wbtcBalRaw, SEI_GAS_BUFFER_RAW]);
 
     const tokenBBalanceRaw = useMemo<bigint | null>(() => {
         if (!address || !canReadOnSei) return null;
@@ -312,11 +338,12 @@ export function LiquiditySection() {
             if (detail?.source && detail.source === refreshSourceRef.current) return;
             void refetchSeiBal();
             void refetchUsdyBal();
+            void refetchWbtcBal();
             void refetchFrogBal();
             void refetchLpBal();
             setRefreshTick((x) => x + 1);
         });
-    }, [mounted, refetchSeiBal, refetchUsdyBal, refetchFrogBal, refetchLpBal]);
+    }, [mounted, refetchSeiBal, refetchUsdyBal, refetchWbtcBal, refetchFrogBal, refetchLpBal]);
 
     useEffect(() => {
         const client = seiPublicClient;
@@ -672,14 +699,16 @@ export function LiquiditySection() {
             }
 
             // ERC20-ERC20 path
-            await approveIfNeeded(usdy, rawA);
+            const tokenA = poolMeta.tokenASymbol === "USDY" ? usdy : wbtc;
+
+            await approveIfNeeded(tokenA, rawA);
             await approveIfNeeded(frog, rawB);
 
             const { request } = await seiPublicClient.simulateContract({
                 address: routerAddress,
                 abi: routerAbi,
                 functionName: "addLiquidity",
-                args: [usdy, frog, rawA, rawB, minA, minB, address as Address, deadline],
+                args: [tokenA, frog, rawA, rawB, minA, minB, address as Address, deadline],
                 account: address as Address,
             });
 
@@ -693,7 +722,7 @@ export function LiquiditySection() {
             await seiPublicClient.waitForTransactionReceipt({ hash });
 
             // Refresh balances + reserves immediately (only what applies) + LP bal
-            const refetches: Promise<unknown>[] = [refetchFrogBal(), refetchLpBal(), refetchUsdyBal()];
+            const refetches: Promise<unknown>[] = [refetchFrogBal(), refetchLpBal(), refetchUsdyBal(), refetchWbtcBal()];
             await Promise.allSettled(refetches);
             setRefreshTick((x) => x + 1);
             emitBalancesRefresh(refreshSourceRef.current);
@@ -726,11 +755,13 @@ export function LiquiditySection() {
         routerAddress,
         routerAbi,
         usdy,
+        wbtc,
         frog,
         approveIfNeeded,
         writeContractAsync,
         refetchSeiBal,
         refetchUsdyBal,
+        refetchWbtcBal,
         refetchFrogBal,
         refetchLpBal,
     ]);
@@ -801,7 +832,7 @@ export function LiquiditySection() {
 
                 await seiPublicClient.waitForTransactionReceipt({ hash });
 
-                await Promise.allSettled([refetchSeiBal(), refetchFrogBal(), refetchLpBal(), refetchUsdyBal()]);
+                await Promise.allSettled([refetchSeiBal(), refetchFrogBal(), refetchLpBal(), refetchUsdyBal(), refetchWbtcBal()]);
                 setRefreshTick((x) => x + 1);
                 emitBalancesRefresh(refreshSourceRef.current);
 
@@ -812,11 +843,12 @@ export function LiquiditySection() {
             }
 
             // ERC20-ERC20 path
+            const tokenA = poolMeta.tokenASymbol === "USDY" ? usdy : wbtc;
             const { request } = await seiPublicClient.simulateContract({
                 address: routerAddress,
                 abi: routerAbi,
                 functionName: "removeLiquidity",
-                args: [usdy, frog, lpToBurnRaw, minA, minB, address as Address, deadline],
+                args: [tokenA, frog, lpToBurnRaw, minA, minB, address as Address, deadline],
                 account: address as Address,
             });
 
@@ -829,7 +861,7 @@ export function LiquiditySection() {
 
             await seiPublicClient.waitForTransactionReceipt({ hash });
 
-            await Promise.allSettled([refetchUsdyBal(), refetchFrogBal(), refetchLpBal(), refetchSeiBal()]);
+            await Promise.allSettled([refetchUsdyBal(), refetchWbtcBal(), refetchFrogBal(), refetchLpBal(), refetchSeiBal()]);
             setRefreshTick((x) => x + 1);
             emitBalancesRefresh(refreshSourceRef.current);
 
@@ -856,14 +888,17 @@ export function LiquiditySection() {
         removePreview.outB,
         poolMeta.mode,
         poolMeta.pair,
+        poolMeta.tokenASymbol,
         routerAddress,
         routerAbi,
         usdy,
+        wbtc,
         frog,
         approveIfNeeded,
         writeContractAsync,
         refetchSeiBal,
         refetchUsdyBal,
+        refetchWbtcBal,
         refetchFrogBal,
         refetchLpBal,
     ]);

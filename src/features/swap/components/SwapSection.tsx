@@ -206,6 +206,15 @@ export function SwapSection() {
         seiRoute: [WSEI_ADDRESS as Address, requireAddress("DRG")],
     });
 
+    const wbtcUsdPrice = useTokenUsdPriceFromRouter({
+        seiUsdPrice: canReadOnSei ? seiUsdPrice : null,
+        chainId: SEI_EVM_CHAIN_ID,
+        routerAddress,
+        routerAbi,
+        tokenDecimals: getDecimals("WBTC"),
+        seiRoute: [WSEI_ADDRESS as Address, requireAddress("FROG"), requireAddress("WBTC")],
+    });
+
     const parsedSei = parseSeiInput(amount);
     const parsedSeiDebounced = parseSeiInput(debouncedAmount);
 
@@ -250,11 +259,11 @@ export function SwapSection() {
     const fromUsdValue = useMemo(() => {
         if (amountInNumber <= 0) return null;
         if (fromSymbol === "SEI") return seiUsdPrice !== null ? amountInNumber * seiUsdPrice : null;
-        if (fromSymbol === "USDC") return amountInNumber;
+        if (fromSymbol === "WBTC") return wbtcUsdPrice !== null ? amountInNumber * wbtcUsdPrice : null;
         if (fromSymbol === "USDY") return usdyUsdPrice !== null ? amountInNumber * usdyUsdPrice : null;
         if (fromSymbol === "DRG") return drgUsdPrice !== null ? amountInNumber * drgUsdPrice : null;
         return frogUsdPrice !== null ? amountInNumber * frogUsdPrice : null;
-    }, [amountInNumber, fromSymbol, seiUsdPrice, usdyUsdPrice, drgUsdPrice, frogUsdPrice]);
+    }, [amountInNumber, fromSymbol, seiUsdPrice, wbtcUsdPrice, usdyUsdPrice, drgUsdPrice, frogUsdPrice]);
 
     const SLIPPAGE_BPS = 200;
 
@@ -273,12 +282,12 @@ export function SwapSection() {
     const toUsdValue = useMemo(() => {
         if (!quote.outFormatted || !Number.isFinite(tokenOutAmount) || tokenOutAmount <= 0) return null;
 
-        if (toSymbol === "USDC") return tokenOutAmount;
+        if (toSymbol === "WBTC") return wbtcUsdPrice !== null ? tokenOutAmount * wbtcUsdPrice : null;
         if (toSymbol === "USDY") return usdyUsdPrice !== null ? tokenOutAmount * usdyUsdPrice : null;
         if (toSymbol === "SEI") return seiUsdPrice !== null ? tokenOutAmount * seiUsdPrice : null;
         if (toSymbol === "DRG") return drgUsdPrice !== null ? tokenOutAmount * drgUsdPrice : null;
         return frogUsdPrice !== null ? tokenOutAmount * frogUsdPrice : null;
-    }, [frogUsdPrice, usdyUsdPrice, seiUsdPrice, drgUsdPrice, quote.outFormatted, tokenOutAmount, toSymbol]);
+    }, [frogUsdPrice, wbtcUsdPrice, usdyUsdPrice, seiUsdPrice, drgUsdPrice, quote.outFormatted, tokenOutAmount, toSymbol]);
 
     // ========= Balances + Max =========
 
@@ -306,9 +315,9 @@ export function SwapSection() {
         query: { enabled: !!address && canReadOnSei, staleTime: 5_000 },
     });
 
-    const { data: usdcBalanceRaw, refetch: refetchUsdcBalance } = useReadContract({
+    const { data: wbtcBalanceRaw, refetch: refetchWbtcBalance } = useReadContract({
         chainId: SEI_EVM_CHAIN_ID,
-        address: requireAddress("USDC"),
+        address: requireAddress("WBTC"),
         abi: erc20Abi,
         functionName: "balanceOf",
         args: address ? [address as Address] : undefined,
@@ -339,9 +348,9 @@ export function SwapSection() {
         if (fromSymbol === "USDY") return typeof usdyBalanceRaw === "bigint" ? usdyBalanceRaw : null;
         if (fromSymbol === "DRG") return typeof drgBalanceRaw === "bigint" ? drgBalanceRaw : null;
         if (fromSymbol === "FROG") return typeof frogBalanceRaw === "bigint" ? frogBalanceRaw : null;
-        if (fromSymbol === "USDC") return typeof usdcBalanceRaw === "bigint" ? usdcBalanceRaw : null;
+        if (fromSymbol === "WBTC") return typeof wbtcBalanceRaw === "bigint" ? wbtcBalanceRaw : null;
         return null;
-    }, [hasAddress, canReadOnSei, fromSymbol, seiBalance?.value, usdyBalanceRaw, drgBalanceRaw, frogBalanceRaw, usdcBalanceRaw, SEI_GAS_BUFFER_RAW]);
+    }, [hasAddress, canReadOnSei, fromSymbol, seiBalance?.value, usdyBalanceRaw, drgBalanceRaw, frogBalanceRaw, wbtcBalanceRaw, SEI_GAS_BUFFER_RAW]);
 
     const fromBalanceDisplay = useMemo(() => {
         if (fromBalanceRaw === null) return null;
@@ -399,10 +408,10 @@ export function SwapSection() {
             void refetchSeiBalance();
             void refetchUsdyBalance();
             void refetchFrogBalance();
-            void refetchUsdcBalance();
+            void refetchWbtcBalance();
             void refetchDrgBalance();
         });
-    }, [mounted, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchUsdcBalance, refetchDrgBalance]);
+    }, [mounted, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchWbtcBalance, refetchDrgBalance]);
 
     useEffect(() => {
         if (!isTxConfirmed) return;
@@ -410,7 +419,7 @@ export function SwapSection() {
         void refetchSeiBalance();
         void refetchUsdyBalance();
         void refetchFrogBalance();
-        void refetchUsdcBalance();
+        void refetchWbtcBalance();
         void refetchDrgBalance();
         void refetchTokenAllowance();
 
@@ -421,7 +430,7 @@ export function SwapSection() {
         if (meta?.kind === "swap") {
             emitBalancesRefresh(refreshSourceRef.current);
         }
-    }, [isTxConfirmed, txHash, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchUsdcBalance, refetchDrgBalance, refetchTokenAllowance]);
+    }, [isTxConfirmed, txHash, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchWbtcBalance, refetchDrgBalance, refetchTokenAllowance]);
 
     useEffect(() => {
         if (!isTxConfirmed || !txHash) return;
@@ -811,7 +820,7 @@ export function SwapSection() {
                                     >
                                         <option value="SEI">SEI</option>
                                         <option value="FROG">FROG</option>
-                                        <option value="USDC">USDC</option>
+                                        <option value="WBTC">WBTC</option>
                                         <option value="USDY">USDY</option>
                                         <option value="DRG">DRG</option>
                                     </select>

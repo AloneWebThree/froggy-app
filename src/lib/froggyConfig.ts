@@ -34,18 +34,24 @@ export const WSEI_ADDRESS =
 export const USDY_ADDRESS =
   "0x54cD901491AeF397084453F4372B93c33260e2A6" as const;
 
-export const USDC_ADDRESS =
-  "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392" as const;
+// WBTC (Wrapped BTC) on Sei EVM
+export const WBTC_ADDRESS =
+  "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c" as const;
 
 // New: DRG (18 decimals)
 export const DRG_TOKEN_ADDRESS =
   "0x0a526e425809aEA71eb279d24ae22Dee6C92A4Fe" as const;
+
+// WBTC/FROG pair
+export const WBTC_FROG_PAIR_ADDRESS =
+  "0x45306156709a205A2F87E72465504D1CdD64a4c0" as const;
 
 // Convenience object used by the landing page today
 export const ADDR = {
   token: FROG_TOKEN_ADDRESS,
   pair: FROG_PAIR_ADDRESS, // FROG/WSEI
   usdyFrogPair: USDY_FROG_PAIR_ADDRESS, // USDY/FROG
+  wbtcFrogPair: WBTC_FROG_PAIR_ADDRESS, // WBTC/FROG
 } as const;
 
 // ===== URLs (DEX, explorers, etc.) =====

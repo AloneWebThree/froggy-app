@@ -24,15 +24,15 @@ function tokenToAddr(sym: Node): Address {
 }
 
 /**
- * Supported connectivity graph (based on pools/routes the app already relied on):
+ * Supported connectivity graph MUST reflect real pools:
  * - WSEI <-> FROG
- * - WSEI <-> USDC
+ * - FROG <-> WBTC   (NO direct SEI/WBTC)
  * - WSEI <-> DRG
  * - FROG <-> USDY
  */
 const EDGES: ReadonlyArray<readonly [Node, Node]> = [
   ["SEI", "FROG"],
-  ["SEI", "USDC"],
+  ["FROG", "WBTC"],
   ["SEI", "DRG"],
   ["FROG", "USDY"],
 ];
@@ -66,7 +66,6 @@ function bfsPath(from: Node, to: Node): Node[] | null {
       if (prev.has(nxt)) continue;
       prev.set(nxt, cur);
       if (nxt === to) {
-        // reconstruct
         const path: Node[] = [];
         let at: Node | null = to;
         while (at) {

@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
-export type ToSymbol = "FROG" | "USDC" | "USDY" | "SEI" | "DRG";
+export type ToSymbol = "FROG" | "WBTC" | "USDY" | "SEI" | "DRG";
 
 type SwapSuccessToastProps = {
     open: boolean;
@@ -34,8 +34,8 @@ export function SwapSuccessToast({
         txHash && `${txHash.slice(0, 6)}…${txHash.slice(txHash.length - 4)}`;
 
     const tokenLabel =
-        toSymbol === "USDC"
-            ? "USDC"
+        toSymbol === "WBTC"
+            ? "WBTC"
             : toSymbol === "USDY"
                 ? "USDY"
                 : toSymbol === "SEI"
