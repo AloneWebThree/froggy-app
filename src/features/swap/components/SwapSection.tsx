@@ -157,14 +157,12 @@ export function SwapSection() {
 
     useEffect(() => {
         if (!showErrorToast) return;
-
         const t = setTimeout(() => {
             setShowErrorToast(false);
             setErrorToastMessage(undefined);
         }, 5000);
-
         return () => clearTimeout(t);
-    }, [showErrorToast, debouncedAmount, fromSymbol, toSymbol]);
+    }, [showErrorToast]);
 
     // Routing remains the source of truth for allowed receive symbols + path
     const { allowedToSymbols, path: v2Path, outDecimals } = useSwapRouting(fromSymbol, toSymbol);
@@ -275,7 +273,10 @@ export function SwapSection() {
         chainId: SEI_EVM_CHAIN_ID,
     });
 
-    const tokenOutAmount = quote.outFormatted ? parseFloat(quote.outFormatted) : 0;
+    const tokenOutAmount = useMemo(
+        () => (quote.outFormatted ? Number(quote.outFormatted) : 0),
+        [quote.outFormatted]
+    );
 
     const toUsdValue = useMemo(() => {
         if (!quote.outFormatted || !Number.isFinite(tokenOutAmount) || tokenOutAmount <= 0) return null;
