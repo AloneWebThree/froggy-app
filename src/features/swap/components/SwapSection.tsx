@@ -73,8 +73,6 @@ async function withRequestedBlockRetry<T>(fn: () => Promise<T>, tries = 2, delay
 }
 
 function allowedToForFrom(from: FromSymbol): ToSymbol[] {
-    // Keep `toSymbol` valid when `fromSymbol` changes.
-    // Real routing truth comes from `useSwapRouting`.
     return computeAllowedToSymbols(from);
 }
 
@@ -389,7 +387,6 @@ export function SwapSection() {
     const { isConfirming, isConfirmed: isTxConfirmed } = useTxLifecycle(txHash as `0x${string}` | undefined);
 
     const txLockRef = useRef(false);
-    // Avoid SSR hydration traps: generate the random refresh source only on the client.
     const refreshSourceRef = useRef<string>("swap");
     useEffect(() => {
         try {
@@ -399,7 +396,6 @@ export function SwapSection() {
         }
     }, []);
 
-    // Listen for app-wide refresh signals (e.g., Liquidity changed balances).
     useEffect(() => {
         if (!mounted) return;
 
@@ -423,7 +419,6 @@ export function SwapSection() {
         void refetchDrgBalance();
         void refetchTokenAllowance();
 
-        // Only broadcast on actual swaps (not approvals), so Liquidity refreshes too.
         const hash = txHash as string | undefined;
         if (!hash) return;
         const meta = txMetaByHashRef.current.get(hash);
@@ -756,28 +751,21 @@ export function SwapSection() {
     return (
         <section id="swap" className="scroll-mt-20 mx-auto max-w-6xl px-4 pb-14">
             <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-                <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
-                <p className="mt-2 text-slate-300/90 text-sm leading-snug">Swap tokens directly from the dApp.</p>
+                <div className="min-w-0">
+                    <h2 className="text-2xl md:text-3xl font-bold">Swap</h2>
+                    <p className="mt-2 text-slate-300/90 text-sm leading-snug">Swap tokens directly from the dApp.</p>
+                </div>
+
+                <Image src="/swap.png" width={72} height={72} className="rounded-full shrink-0 opacity-90" alt="Froggy icon" />
             </div>
 
-            <Image
-                src="/swap.png"
-                width={72}
-                height={72}
-                className="rounded-full shrink-0 opacity-90"
-                alt="Froggy icon"
-                />
-            </div>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1.15fr] md:items-stretch">
+            <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1.15fr] md:items-stretch auto-rows-fr">
                 {/* Chart (DOM first, but SECOND on mobile) */}
-                <div
-                    className={`order-2 md:order-1 min-h-0 rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}>
+                <div className={`order-2 md:order-1 min-h-0 rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}>
                     <iframe
                         title="Price chart on GeckoTerminal"
                         src={URL.dexEmbed}
-                        className="w-full flex-1"
+                        className="w-full flex-1 min-h-0"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                         sandbox="allow-same-origin allow-scripts"
@@ -795,12 +783,7 @@ export function SwapSection() {
                             >
                                 Explorer ↗
                             </a>
-                            <a
-                                href={URL.dexFull}
-                                className="text-xs rounded-lg px-2 py-1 border border-white/10 hover:bg-white/5"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
+                            <a href={URL.dexFull} className="text-xs rounded-lg px-2 py-1 border border-white/10 hover:bg-white/5" target="_blank" rel="noreferrer">
                                 Full chart ↗
                             </a>
                         </div>
@@ -976,12 +959,7 @@ export function SwapSection() {
 
             <SwapSuccessToast open={showSuccessToast} onClose={() => setShowSuccessToast(false)} txHash={txForToast} toSymbol={toSymbolForToast} />
 
-            <ApprovalToast
-                open={showApprovalToast}
-                onClose={() => setShowApprovalToast(false)}
-                txHash={approvalTxForToast}
-                tokenSymbol={approvalTokenForToast}
-            />
+            <ApprovalToast open={showApprovalToast} onClose={() => setShowApprovalToast(false)} txHash={approvalTxForToast} tokenSymbol={approvalTokenForToast} />
 
             <SwapErrorToast
                 open={showErrorToast}
