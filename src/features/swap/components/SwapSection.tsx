@@ -772,7 +772,7 @@ export function SwapSection() {
 
             <div className="mt-4 grid gap-4 md:grid-cols-[2fr_1.15fr] md:items-stretch">
                 {/* Left: chart */}
-                <div className={`rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}>
+                <div className={`order-2 md:order-1 rounded-2xl overflow-hidden border border-white/10 bg-brand-card ${panelHeight} flex flex-col`}>
                     <iframe
                         title="Price chart on GeckoTerminal"
                         src={URL.dexEmbed}
@@ -818,7 +818,7 @@ export function SwapSection() {
                         </div>
                     </div>
 
-                    <div className="mt-4 flex-1 overflow-y-auto overflow-x-hidden pr-4" style={{ scrollbarGutter: "stable" }}>
+                    <div className={`order-1 md:order-2 rounded-2xl border border-white/10 bg-brand-card p-5 flex flex-col ${panelHeight} overflow-hidden`}>
                         <div className="space-y-4 min-w-0">
                             {/* From / To selectors */}
                             <div className="grid grid-cols-2 gap-3">
