@@ -744,7 +744,7 @@ export function SwapSection() {
     ]);
 
     const helpLine = "Swaps route through Sei EVM";
-    const panelHeight = "h-[clamp(540px,70vh,680px)] min-h-[520px]";
+    const panelHeight = "h-[clamp(540px,70vh,600px)] min-h-[520px]";
     const outDisplay = useMemo(() => formatOutDisplay(quote.outFormatted), [quote.outFormatted]);
 
     const showApproveToggle = fromSymbol !== "SEI";
