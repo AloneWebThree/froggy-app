@@ -972,7 +972,7 @@ export default function DashboardPage() {
                                         </div>
 
                                         <p className="mt-3 text-[11px] text-brand-subtle/80 leading-tight">
-                                            Badges don’t disappear if you miss a day—once earned, you keep them.
+                                            Badges don’t disappear if you miss a day. Once earned, you keep them.
                                         </p>
                                     </>
                                 )}
