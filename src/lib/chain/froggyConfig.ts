@@ -13,7 +13,7 @@ export const FROG_TOKEN_ADDRESS =
 export const FROG_PAIR_ADDRESS =
   "0x373e718e54e73fb462fec3a73e9645efea280b84" as const;
 
-// NEW: USDY/FROG pair (FILL THIS IN)
+// NEW: USDY/FROG pair
 export const USDY_FROG_PAIR_ADDRESS =
   "0x6B52aBe2414CC0fbff24b5a7d25bC6A37c44Bc31" as const;
 
@@ -45,6 +45,10 @@ export const DRG_TOKEN_ADDRESS =
 // WBTC/FROG pair
 export const WBTC_FROG_PAIR_ADDRESS =
   "0x45306156709a205A2F87E72465504D1CdD64a4c0" as const;
+  
+// Froggy Rewards Contract
+export const FROGGY_REWARDS_ADDRESS =
+  "0xba0A1C7D10d83d214FBe0e97EA30127A920dE72c" as const;
 
 // Convenience object used by the landing page today
 export const ADDR = {
@@ -126,6 +130,64 @@ export const ERC20_ABI = [
       { name: "amount", type: "uint256" },
     ],
     outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+export const FROGGY_REWARDS_ABI = [
+  {
+    type: "function",
+    name: "preview",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [
+      { name: "isActive", type: "bool" },
+      { name: "canAccrueToday", type: "bool" },
+      { name: "aprBps", type: "uint256" },
+      { name: "rewardToday", type: "uint256" },
+      { name: "balanceSnapshot", type: "uint256" },
+      { name: "balanceUsed", type: "uint256" },
+      { name: "currentStreak", type: "uint32" },
+      { name: "today", type: "uint64" },
+      { name: "lastCheckInDay", type: "uint64" },
+      { name: "lastAccruedDay_", type: "uint64" },
+      { name: "accruedSoFar", type: "uint256" },
+      { name: "capRaw", type: "uint256" },
+    ],
+  },
+  {
+    type: "function",
+    name: "claimable",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "poolBalance",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "accrue",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "accrueFor",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "claim",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
   },
 ] as const;
 
