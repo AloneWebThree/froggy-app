@@ -521,9 +521,7 @@ export function LiquiditySection() {
         poolMeta.tokenBSymbol,
     ]);
 
-    // 8% for WBTC pool (tiny liquidity/rounding), 2% otherwise
-    const SLIPPAGE_BPS = poolMeta.tokenASymbol === "WBTC" ? 400 : 200;
-
+    const SLIPPAGE_BPS = 200;
     const txLockRef = useRef(false);
     const [busy, setBusy] = useState(false);
 
