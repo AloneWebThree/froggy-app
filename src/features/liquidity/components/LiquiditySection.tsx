@@ -50,6 +50,12 @@ const TOTAL_SUPPLY_ABI = [
 
 const LP_DECIMALS = 18;
 
+/** CEIL mulDiv to avoid under-shooting optimal amounts due to integer truncation */
+function mulDivCeil(a: bigint, b: bigint, denom: bigint) {
+    if (denom === 0n) return 0n;
+    return (a * b + (denom - 1n)) / denom;
+}
+
 function sanitizeAmountInput(input: string) {
     if (input === "") return "";
     let s = input.replace(/[^\d.]/g, "");
@@ -310,8 +316,10 @@ export function LiquiditySection() {
         if (tokenABalanceRaw === null) return;
         lastEditedRef.current = "A";
         const full = formatUnits(tokenABalanceRaw, poolMeta.tokenADecimals);
-        setAmountA(clampDecimals(full, 6));
-    }, [tokenABalanceRaw, poolMeta.tokenADecimals]);
+        // keep UI trim, but don't murder WBTC precision
+        const dp = poolMeta.tokenASymbol === "WBTC" ? 8 : 6;
+        setAmountA(clampDecimals(full, dp));
+    }, [tokenABalanceRaw, poolMeta.tokenADecimals, poolMeta.tokenASymbol]);
 
     const onMaxFrog = useCallback(() => {
         if (tokenBBalanceRaw === null) return;
@@ -415,7 +423,7 @@ export function LiquiditySection() {
         };
     }, [canReadOnSei, seiPublicClient, poolMeta.pair, poolMeta.tokenA_forReserves, poolMeta.tokenB, refreshTick]);
 
-    // ===== two-way ratio fill =====
+    // ===== two-way ratio fill (CEIL to avoid INSUFFICIENT_*_AMOUNT due to truncation) =====
     useEffect(() => {
         if (!reserves.ready) return;
         if (reserves.reserveA === 0n || reserves.reserveB === 0n) return;
@@ -438,7 +446,8 @@ export function LiquiditySection() {
                     setAmountB("");
                     return;
                 }
-                const rawB = (rawA * reserves.reserveB) / reserves.reserveA;
+                // CEIL so desired B is never under optimal due to integer math
+                const rawB = mulDivCeil(rawA, reserves.reserveB, reserves.reserveA);
                 setAmountB(clampDecimals(formatUnits(rawB, poolMeta.tokenBDecimals), 6));
                 return;
             }
@@ -449,8 +458,10 @@ export function LiquiditySection() {
                     setAmountA("");
                     return;
                 }
-                const rawA = (rawB * reserves.reserveA) / reserves.reserveB;
-                setAmountA(clampDecimals(formatUnits(rawA, poolMeta.tokenADecimals), 6));
+                // CEIL so desired A is never under optimal due to integer math
+                const rawA = mulDivCeil(rawB, reserves.reserveA, reserves.reserveB);
+                const dp = poolMeta.tokenASymbol === "WBTC" ? 8 : 6;
+                setAmountA(clampDecimals(formatUnits(rawA, poolMeta.tokenADecimals), dp));
                 return;
             }
         } catch {
@@ -464,6 +475,7 @@ export function LiquiditySection() {
         debouncedB,
         poolMeta.tokenADecimals,
         poolMeta.tokenBDecimals,
+        poolMeta.tokenASymbol,
     ]);
 
     const reservesContent = useMemo(() => {
@@ -509,7 +521,9 @@ export function LiquiditySection() {
         poolMeta.tokenBSymbol,
     ]);
 
-    const SLIPPAGE_BPS = 200;
+    // 8% for WBTC pool (tiny liquidity/rounding), 2% otherwise
+    const SLIPPAGE_BPS = poolMeta.tokenASymbol === "WBTC" ? 400 : 200;
+
     const txLockRef = useRef(false);
     const [busy, setBusy] = useState(false);
 
@@ -657,8 +671,12 @@ export function LiquiditySection() {
             }
 
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
-            const minA = (rawA * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
-            const minB = (rawB * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+
+            // mins (slippage) + 1-wei cushion against rounding mismatches
+            let minA = (rawA * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+            let minB = (rawB * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+            if (minA > 0n) minA -= 1n;
+            if (minB > 0n) minB -= 1n;
 
             setBusy(true);
 
@@ -764,6 +782,7 @@ export function LiquiditySection() {
         refetchWbtcBal,
         refetchFrogBal,
         refetchLpBal,
+        SLIPPAGE_BPS,
     ]);
 
     const removeLiquidity = useCallback(async () => {
@@ -804,9 +823,11 @@ export function LiquiditySection() {
 
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
 
-            // Preview-derived mins (approx)
-            const minA = (removePreview.outA * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
-            const minB = (removePreview.outB * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+            // Preview-derived mins (approx) + 1-wei cushion
+            let minA = (removePreview.outA * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+            let minB = (removePreview.outB * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
+            if (minA > 0n) minA -= 1n;
+            if (minB > 0n) minB -= 1n;
 
             setBusy(true);
 
@@ -901,6 +922,7 @@ export function LiquiditySection() {
         refetchWbtcBal,
         refetchFrogBal,
         refetchLpBal,
+        SLIPPAGE_BPS,
     ]);
 
     // Mode-aware disable:
@@ -949,7 +971,8 @@ export function LiquiditySection() {
         clampedRemovePct,
     ]);
 
-    const submitDisabled = baseDisabled || (mode === "ADD" ? buttonLabel !== "Add liquidity" : buttonLabel !== "Remove liquidity");
+    const submitDisabled =
+        baseDisabled || (mode === "ADD" ? buttonLabel !== "Add liquidity" : buttonLabel !== "Remove liquidity");
 
     const resetPool = useCallback((next: PoolKey) => {
         lastEditedRef.current = null;
@@ -1230,7 +1253,8 @@ export function LiquiditySection() {
 
                                     <div className="mt-2 flex items-center justify-between text-[11px] text-brand-subtle">
                                         <span>
-                                            Remove: <span className="text-brand-text font-semibold">{clampedRemovePct}%</span>
+                                            Remove:{" "}
+                                            <span className="text-brand-text font-semibold">{clampedRemovePct}%</span>
                                         </span>
 
                                         <span className="font-mono">
@@ -1244,19 +1268,20 @@ export function LiquiditySection() {
                             </div>
 
                             {/* Prices also visible in remove flow, under the control area */}
-                                {rateLine && (
-                                    <div className="text-[11px] text-white/55 pl-1 leading-tight">
-                                        <span className="text-white/45 mr-1">Price:</span>
-                                        <span className="font-mono text-white/70">{rateLine}</span>
-                                    </div>
-                                )}
+                            {rateLine && (
+                                <div className="text-[11px] text-white/55 pl-1 leading-tight">
+                                    <span className="text-white/45 mr-1">Price:</span>
+                                    <span className="font-mono text-white/70">{rateLine}</span>
+                                </div>
+                            )}
 
                             <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
                                 <div className="text-[11px] text-brand-subtle">You receive (estimated)</div>
                                 <div className="mt-1 text-xs">
                                     <span className="text-brand-text font-mono">
                                         {removePreview.ready
-                                            ? `${formatTokenDisplay(removePreview.outA, poolMeta.tokenADecimals)} ${poolMeta.tokenASymbol} + ${formatTokenDisplay(
+                                            ? `${formatTokenDisplay(removePreview.outA, poolMeta.tokenADecimals)} ${poolMeta.tokenASymbol
+                                            } + ${formatTokenDisplay(
                                                 removePreview.outB,
                                                 poolMeta.tokenBDecimals
                                             )} ${poolMeta.tokenBSymbol}`
