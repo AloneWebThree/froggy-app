@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type MouseEvent } from "react";
 import Image from "next/image";
 import { Twitter, Send } from "lucide-react";
 
@@ -10,6 +10,12 @@ export function MainHeader() {
     const [menuOpen, setMenuOpen] = useState(false);
     const toggleRef = useRef<HTMLButtonElement | null>(null);
     const firstLinkRef = useRef<HTMLAnchorElement | null>(null);
+
+    const toggleMenu = (e: MouseEvent<HTMLButtonElement>) => {
+        // Prevent click-through / double-toggle edge cases on mobile.
+        e.stopPropagation();
+        setMenuOpen((prev) => !prev);
+    };
 
     // Mobile nav: focus, Esc key, click-outside
     useEffect(() => {
@@ -30,10 +36,13 @@ export function MainHeader() {
 
         const onPointerDown = (e: PointerEvent) => {
             const nav = document.getElementById("mobile-nav");
-            if (nav && (nav === e.target || nav.contains(e.target as Node))) return;
-
             const btn = toggleRef.current;
-            if (btn && (btn === e.target || btn.contains(e.target as Node))) return;
+
+            // Use composedPath when available (mobile Safari + SVG targets can be finicky).
+            const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+            const inNav = !!nav && (path.includes(nav) || nav.contains(e.target as Node));
+            const inBtn = !!btn && (path.includes(btn) || btn.contains(e.target as Node));
+            if (inNav || inBtn) return;
 
             setMenuOpen(false);
             toggleRef.current?.focus();
@@ -52,11 +61,7 @@ export function MainHeader() {
         <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-white/5">
             <div className="mx-auto max-w-6xl px-4">
                 <div className="flex h-16 items-center justify-between">
-                    <a
-                        className="flex items-center gap-3"
-                        href="#home"
-                        aria-label="Froggy home"
-                    >
+                    <a className="flex items-center gap-3" href="#home" aria-label="Froggy home">
                         <Image
                             src="/froggy-logo.png"
                             alt="Froggy logo"
@@ -65,9 +70,7 @@ export function MainHeader() {
                             className="rounded-xl object-contain"
                             priority
                         />
-                        <span className="font-semibold tracking-wide text-brand-text">
-                            FROGGY
-                        </span>
+                        <span className="font-semibold tracking-wide text-brand-text">FROGGY</span>
                     </a>
 
                     {/* Desktop nav */}
@@ -100,10 +103,7 @@ export function MainHeader() {
                             rel="noopener noreferrer"
                             aria-label="Froggy on X"
                         >
-                            <Twitter
-                                size={20}
-                                className="opacity-80 hover:opacity-100 text-brand-text"
-                            />
+                            <Twitter size={20} className="opacity-80 hover:opacity-100 text-brand-text" />
                         </a>
 
                         <a
@@ -112,10 +112,7 @@ export function MainHeader() {
                             rel="noopener noreferrer"
                             aria-label="Froggy on Telegram"
                         >
-                            <Send
-                                size={20}
-                                className="opacity-80 hover:opacity-100 text-brand-text"
-                            />
+                            <Send size={20} className="opacity-80 hover:opacity-100 text-brand-text" />
                         </a>
                     </div>
 
@@ -128,17 +125,12 @@ export function MainHeader() {
                             type="button"
                             ref={toggleRef}
                             className="md:hidden rounded-lg p-2 hover:bg-white/5"
-                            onClick={() => setMenuOpen((v) => !v)}
+                            onClick={toggleMenu}
                             aria-label="Toggle navigation"
                             aria-controls="mobile-nav"
                             aria-expanded={menuOpen}
                         >
-                            <svg
-                                width="22"
-                                height="22"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                            >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                                 <path
                                     d="M4 6h16M4 12h16M4 18h16"
                                     stroke="currentColor"
@@ -157,7 +149,8 @@ export function MainHeader() {
                         type="button"
                         aria-hidden="true"
                         className="fixed inset-0 bg-black/30 md:hidden z-40"
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation();
                             setMenuOpen(false);
                             toggleRef.current?.focus();
                         }}
@@ -168,10 +161,7 @@ export function MainHeader() {
                         aria-label="Primary"
                         className="md:hidden border-t border-white/10 relative z-50"
                     >
-                        <ul
-                            role="menu"
-                            className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 text-sm"
-                        >
+                        <ul role="menu" className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 text-sm">
                             {[
                                 { id: "token", label: "Token" },
                                 { id: "swap", label: "Swap" },
@@ -202,20 +192,14 @@ export function MainHeader() {
                             </li>
 
                             {/* Social icons */}
-                            <li
-                                role="none"
-                                className="mt-4 flex items-center gap-4"
-                            >
+                            <li role="none" className="mt-4 flex items-center gap-4">
                                 <a
                                     href="https://x.com/frogonsei"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label="Froggy on X"
                                 >
-                                    <Twitter
-                                        size={22}
-                                        className="opacity-80 hover:opacity-100 text-brand-text"
-                                    />
+                                    <Twitter size={22} className="opacity-80 hover:opacity-100 text-brand-text" />
                                 </a>
 
                                 <a
@@ -224,10 +208,7 @@ export function MainHeader() {
                                     rel="noopener noreferrer"
                                     aria-label="Froggy on Telegram"
                                 >
-                                    <Send
-                                        size={22}
-                                        className="opacity-80 hover:opacity-100 text-brand-text"
-                                    />
+                                    <Send size={22} className="opacity-80 hover:opacity-100 text-brand-text" />
                                 </a>
                             </li>
                         </ul>

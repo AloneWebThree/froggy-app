@@ -273,10 +273,7 @@ export function SwapSection() {
         chainId: SEI_EVM_CHAIN_ID,
     });
 
-    const tokenOutAmount = useMemo(
-        () => (quote.outFormatted ? Number(quote.outFormatted) : 0),
-        [quote.outFormatted]
-    );
+    const tokenOutAmount = useMemo(() => (quote.outFormatted ? Number(quote.outFormatted) : 0), [quote.outFormatted]);
 
     const toUsdValue = useMemo(() => {
         if (!quote.outFormatted || !Number.isFinite(tokenOutAmount) || tokenOutAmount <= 0) return null;
@@ -349,7 +346,17 @@ export function SwapSection() {
         if (fromSymbol === "FROG") return typeof frogBalanceRaw === "bigint" ? frogBalanceRaw : null;
         if (fromSymbol === "WBTC") return typeof wbtcBalanceRaw === "bigint" ? wbtcBalanceRaw : null;
         return null;
-    }, [hasAddress, canReadOnSei, fromSymbol, seiBalance?.value, usdyBalanceRaw, drgBalanceRaw, frogBalanceRaw, wbtcBalanceRaw, SEI_GAS_BUFFER_RAW]);
+    }, [
+        hasAddress,
+        canReadOnSei,
+        fromSymbol,
+        seiBalance?.value,
+        usdyBalanceRaw,
+        drgBalanceRaw,
+        frogBalanceRaw,
+        wbtcBalanceRaw,
+        SEI_GAS_BUFFER_RAW,
+    ]);
 
     const fromBalanceDisplay = useMemo(() => {
         if (fromBalanceRaw === null) return null;
@@ -426,7 +433,16 @@ export function SwapSection() {
         if (meta?.kind === "swap") {
             emitBalancesRefresh(refreshSourceRef.current);
         }
-    }, [isTxConfirmed, txHash, refetchSeiBalance, refetchUsdyBalance, refetchFrogBalance, refetchWbtcBalance, refetchDrgBalance, refetchTokenAllowance]);
+    }, [
+        isTxConfirmed,
+        txHash,
+        refetchSeiBalance,
+        refetchUsdyBalance,
+        refetchFrogBalance,
+        refetchWbtcBalance,
+        refetchDrgBalance,
+        refetchTokenAllowance,
+    ]);
 
     useEffect(() => {
         if (!isTxConfirmed || !txHash) return;
@@ -593,39 +609,23 @@ export function SwapSection() {
                     }
                 }
 
-                if (toSymbol !== "SEI") {
-                    const minOutFresh = await preflightMinOut();
-
-                    const { request } = await withRequestedBlockRetry(
-                        () =>
-                            seiPublicClient.simulateContract({
-                                address: routerAddress,
-                                abi: routerAbi,
-                                functionName: "swapExactTokensForTokens",
-                                args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
-                                account: address as Address,
-                            }),
-                        2,
-                        900
-                    );
-
-                    const h = await writeContractAsync({
-                        ...(request as WriteArgs),
-                        chainId: SEI_EVM_CHAIN_ID,
-                    });
-                    recordTxMeta("swap", h, { swapToSymbol: toSymbol });
-                    return;
-                }
-
                 const minOutFresh = await preflightMinOut();
+
+                const fn =
+                    toSymbol !== "SEI" ? "swapExactTokensForTokens" : "swapExactTokensForSEI";
+
+                const args =
+                    toSymbol !== "SEI"
+                        ? ([amountIn, minOutFresh, v2Path, address as Address, deadline] as const)
+                        : ([amountIn, minOutFresh, v2Path, address as Address, deadline] as const);
 
                 const { request } = await withRequestedBlockRetry(
                     () =>
                         seiPublicClient.simulateContract({
                             address: routerAddress,
                             abi: routerAbi,
-                            functionName: "swapExactTokensForSEI",
-                            args: [amountIn, minOutFresh, v2Path, address as Address, deadline],
+                            functionName: fn,
+                            args,
                             account: address as Address,
                         }),
                     2,
@@ -744,7 +744,10 @@ export function SwapSection() {
     ]);
 
     const helpLine = "Swaps route through Sei EVM";
-    const panelHeight = "h-[clamp(540px,70vh,600px)] min-h-[520px]";
+
+    // CHANGE #1: make the fixed/clamped height DESKTOP-only (mobile grows naturally)
+    const panelHeight = "md:h-[clamp(540px,70vh,600px)] md:min-h-[520px]";
+
     const outDisplay = useMemo(() => formatOutDisplay(quote.outFormatted), [quote.outFormatted]);
 
     const showApproveToggle = fromSymbol !== "SEI";
@@ -803,7 +806,11 @@ export function SwapSection() {
                         </div>
                     </div>
 
-                    <div className="mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-4" style={{ scrollbarGutter: "stable" }}>
+                    {/* CHANGE #2: no inner scroll on mobile; keep it on desktop */}
+                    <div
+                        className="mt-4 flex-1 min-h-0 overflow-visible md:overflow-y-auto overflow-x-hidden md:pr-4"
+                        style={{ scrollbarGutter: "stable" }}
+                    >
                         <div className="space-y-4 min-w-0">
                             {/* From / To selectors */}
                             <div className="grid grid-cols-2 gap-3">
