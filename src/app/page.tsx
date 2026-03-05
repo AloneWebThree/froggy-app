@@ -10,11 +10,14 @@ import { TokenSection } from "@/components/landing/TokenSection";
 import { RoadmapSection } from "@/components/landing/RoadmapSection";
 import { LiquidityLandingSection } from "@/components/landing/LiquidityLandingSection";
 
+import { ScrollFixOnReload } from "@/components/layout/ScrollFixOnReload";
+
 
 export default function FroggyLanding() {
     //Main page section
     return (
         <div className="min-h-screen w-full" style={{ background: brand.bg, color: brand.text }}>
+            <ScrollFixOnReload />
             <MainHeader />
 
             {/* Hero */}
