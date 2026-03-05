@@ -14,7 +14,9 @@ export default function LiveStats() {
     const { data, isLoading, isError } = useQuery<FrogStats>({
         queryKey: ["frog-stats"],
         queryFn: async () => {
-            const res = await fetch("/api/frog-stats");
+            // Mobile browsers + some in-app webviews can be aggressive about caching.
+            // Bust the URL + opt out of fetch caching so a hard refresh actually refetches.
+            const res = await fetch(`/api/frog-stats?ts=${Date.now()}`, { cache: "no-store" });
             if (!res.ok) {
                 throw new Error("Failed to load stats");
             }

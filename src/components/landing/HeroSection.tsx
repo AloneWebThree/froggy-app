@@ -7,6 +7,7 @@ import { useAccount } from "wagmi";
 
 import { requireAddress } from "@/lib/tokens/registry";
 import { brand } from "@/lib/utils/brand";
+import { scrollToSection } from "@/lib/utils/scroll";
 import froggySamurai from "@public/gallery/froggy-samurai.png";
 
 function truncateAddr(addr: string) {
@@ -119,12 +120,16 @@ export function HeroSection() {
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-3">
-                        <Link
-                            href="/#swap"
+                        <a
+                            href="#swap"
                             className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-transform duration-150 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-primary/40 bg-brand-primary text-brand-bg"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("swap");
+                            }}
                         >
                             Swap
-                        </Link>
+                        </a>
 
                         {/* OUTLINED secondary for hierarchy */}
                         <Link

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Twitter, Send } from "lucide-react";
 
 import { WalletButton } from "@/components/layout/WalletButton";
+import { scrollToSection } from "@/lib/utils/scroll";
 
 export function MainHeader() {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -61,7 +62,15 @@ export function MainHeader() {
         <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-white/5">
             <div className="mx-auto max-w-6xl px-4">
                 <div className="flex h-16 items-center justify-between">
-                    <a className="flex items-center gap-3" href="#home" aria-label="Froggy home">
+                    <a
+                        className="flex items-center gap-3"
+                        href="#home"
+                        aria-label="Froggy home"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            scrollToSection("home");
+                        }}
+                    >
                         <Image
                             src="/froggy-logo.png"
                             alt="Froggy logo"
@@ -75,22 +84,64 @@ export function MainHeader() {
 
                     {/* Desktop nav */}
                     <nav className="hidden gap-8 md:flex text-sm text-slate-200/90">
-                        <a href="#token" className="hover:text-white">
+                        <a
+                            href="#token"
+                            className="hover:text-white"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("token");
+                            }}
+                        >
                             Token
                         </a>
-                        <a href="#swap" className="hover:text-white">
+                        <a
+                            href="#swap"
+                            className="hover:text-white"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("swap");
+                            }}
+                        >
                             Swap
                         </a>
-                        <a href="#liquidity" className="hover:text-white">
+                        <a
+                            href="#liquidity"
+                            className="hover:text-white"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("liquidity");
+                            }}
+                        >
                             Liquidity
                         </a>
-                        <a href="#gallery" className="hover:text-white">
+                        <a
+                            href="#gallery"
+                            className="hover:text-white"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("gallery");
+                            }}
+                        >
                             Gallery
                         </a>
-                        <a href="#roadmap" className="hover:text-white">
+                        <a
+                            href="#roadmap"
+                            className="hover:text-white"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("roadmap");
+                            }}
+                        >
                             Roadmap
                         </a>
-                        <a href="#faq" className="hover:text-white">
+                        <a
+                            href="#faq"
+                            className="hover:text-white"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                scrollToSection("faq");
+                            }}
+                        >
                             FAQ
                         </a>
                     </nav>
@@ -176,8 +227,10 @@ export function MainHeader() {
                                         ref={i === 0 ? firstLinkRef : undefined}
                                         href={`#${item.id}`}
                                         className="block py-1 hover:text-white"
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.preventDefault();
                                             setMenuOpen(false);
+                                            scrollToSection(item.id);
                                             toggleRef.current?.focus();
                                         }}
                                     >
